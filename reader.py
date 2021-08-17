@@ -22,9 +22,10 @@ class Analyser:
     """reads and analyses"""
 
     def __init__(self):
-        from defaults import Defaults
+        print("this shouldn't be a class")
 
     def plot_energy(self):
+        from defaults import Defaults
         d = Defaults()
         time_list = np.linspace(0, float(d.getter("time_end")), num=int(d.getter("total_store")))
         try:
