@@ -309,11 +309,11 @@ if __name__ == '__main__':
     if do_analysis:
         print("analysing....")
         a = Analyser()
-        # do_energy = False
-        do_energy = True
+        do_energy = False
+        # do_energy = True
         if do_energy:
             a.plot_energy()
-        do_patches = False
-        # do_patches = True
+        # do_patches = False
+        do_patches = True
         if do_patches:
             a.plot_patches()

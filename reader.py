@@ -23,42 +23,61 @@ class Analyser:
 
     def __init__(self):
         from defaults import Defaults
-        d = Defaults()
-        self.time_list = np.linspace(0, float(d.getter("time_end")), num=int(d.getter("total_store")))
 
+    def plot_energy(self):
+        d = Defaults()
+        time_list = np.linspace(0, float(d.getter("time_end")), num=int(d.getter("total_store")))
         try:
-            self.data_file = open("data_dump", "r")
+            data_file = open("data_dump", "r")
         except FileNotFoundError:
             print("You deleted the data_dump file or didn't make it with Engine")
             raise FileNotFoundError
-        try:
-            self.patch_file = open("patches", "r")
-        except FileNotFoundError:
-            print("You deleted the patches file or didn't make it with ParticlePatches")
-            raise FileNotFoundError
-        # todo these^ file reads can go in their respective functions, can't they?
 
-    def plot_energy(self):
-        energy_list = np.zeros(np.shape(self.time_list))
+        energy_list = np.zeros(np.shape(time_list))
 
         i = -3
-        for line in self.data_file:
+        for line in data_file:
             if i >= 0:  # get out of the way of the first few lines of non-data
                 this_line = line.strip()
                 field = this_line.split(",")
                 energy_list[i] = float(field[12])
             i += 1
-        plt.plot(self.time_list, energy_list)
+        plt.plot(time_list, energy_list)
+        plt.show()
 
     def plot_patches(self):
-        for t in self.time_list:
-            if t == 0:
-                self.patch_file.readline()  # get out of the way of the first line of non-data
-            next_hit_time = float(self.patch_file.readline())
-            # try:
-            #     next_hit_time = float(self.patch_file.readline())
-            # except ValueError:
-            #     finished_patches = True  # need this if I use a while loop instead of a for loop
+        try:
+            patch_file = open("patches", "r")
+        except FileNotFoundError:
+            print("You deleted the patches file or didn't make it with ParticlePatches")
+            raise FileNotFoundError
+
+        plot_length = int((len(patch_file.readlines()) - 1) / 2)  # todo check this is the right number
+        hit_time_list = np.zeros(plot_length)
+        patch_list = np.zeros([plot_length, 200])  # todo 200 here should be n from the initial conditions dictionary
+
+        patch_file = open("patches", "r")
+
+        i = -1
+        while True:  # is an alternative method to the for loop, which wasn't working before because I didn't read again
+            line = patch_file.readline()
+            if line == '':
+                break
+            if i >= 0:
+                if i % 2 == 0:
+                    hit_time_list[int(i / 2)] = float(line)
+                else:
+                    this_line = line.strip()
+                    field = this_line.split(",")
+                    j = 0
+                    for f in field:
+                        patch_list[int((i - 1) / 2), j] = float(f)  # track only 0th patch for now to see if it works
+                        j += 1
+            i += 1
+        # print(hit_time_list)
+        # print(patch_list)
+        plt.plot(hit_time_list, patch_list)
+        plt.show()
 
         # fig_e = plt.figure()
         # mngr_e = plt.get_current_fig_manager()
