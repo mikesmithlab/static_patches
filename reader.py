@@ -9,6 +9,7 @@ from main import normalise
 from main import sphere_maker
 from main import find_rotation_matrix
 from main import my_cross
+from defaults import Defaults
 
 
 def find_truth(o, n):  # old, new positions
@@ -22,9 +23,9 @@ class Analyser:
     """reads and analyses"""
 
     def __init__(self):
-        from defaults import Defaults
+        print("some analysis will happen now ---------- MAKE THIS NOT A CLASS")
 
-    def plot_energy(self):
+    def plot_energy(self, do_i_need_to_show):
         d = Defaults()
         time_list = np.linspace(0, float(d.getter("time_end")), num=int(d.getter("total_store")))
         try:
@@ -42,7 +43,13 @@ class Analyser:
                 field = this_line.split(",")
                 energy_list[i] = float(field[12])
             i += 1
+
+        fig_e = plt.figure()
+        mngr_e = plt.get_current_fig_manager()
+        # mngr_e.window.setGeometry(475, 175, 850, 545)
         plt.plot(time_list, energy_list)
+        if do_i_need_to_show:
+            return
         plt.show()
 
     def plot_patches(self):
@@ -71,11 +78,12 @@ class Analyser:
                     field = this_line.split(",")
                     j = 0
                     for f in field:
-                        patch_list[int((i - 1) / 2), j] = float(f)  # track only 0th patch for now to see if it works
+                        patch_list[int((i - 1) / 2), j] = float(f)
                         j += 1
             i += 1
-        # print(hit_time_list)
-        # print(patch_list)
+        fig_p = plt.figure()
+        mngr_p = plt.get_current_fig_manager()
+        # mngr_p.window.setGeometry(475, 175, 850, 545)
         plt.plot(hit_time_list, patch_list)
         plt.show()
 
