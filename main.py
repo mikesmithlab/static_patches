@@ -18,14 +18,12 @@ from scipy.spatial import KDTree
 # todo do we ever need to define self.part = p? can we not just use p?
 
 
-def q_conjugate(q):
+def q_conjugate(q):  # return the conjugate of a quaternion
     w, x, y, z = q
     return w, -x, -y, -z
-    # this takes basically no time so shouldn't need optimising, unless I overhaul the qvq_multiply func so this would
-    # benefit from having [real, -*vector], maybe?
 
 
-def qq_multiply(q1, q2):
+def qq_multiply(q1, q2):  # return the result of quaternion multiplied by quaternion in the order q1 by q2
     w1, x1, y1, z1 = q1
     w2, x2, y2, z2 = q2
     w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
@@ -33,12 +31,10 @@ def qq_multiply(q1, q2):
     y = w1 * y2 + y1 * w2 + z1 * x2 - x1 * z2
     z = w1 * z2 + z1 * w2 + x1 * y2 - y1 * x2
     return w, x, y, z
-    # (r1, v1)(r2, v2) = (r1 * r2 − v1⋅v2, r1*v2 + r2*v1 + v1×v2) is more concise?
-    # todo try the above dot and cross method for speed if qq_multiply takes any time at all
-    # qq_multiply currently takes about 1/20 of the total time
 
 
-def qvq_multiply(rotation_quaternion, vector):  # the quaternion (rotation_q) should be unitary (aka normalised)
+def qvq_multiply(rotation_quaternion, vector):  # return vector rotated by rotation_quaternion using qvq' multiplication
+    # the quaternion (rotation_q) should be unitary (aka normalised)
     return qq_multiply(qq_multiply(rotation_quaternion, [0, *vector]), q_conjugate(rotation_quaternion))[1:]
     # this would output a quaternion but we only want the vector part of it so we have the [1:] at the end
 
@@ -55,7 +51,7 @@ def find_magnitude(vector):  # very fast magnitude finder for numpy vectors
     return vector.dot(vector) ** 0.5
 
 
-def normalise(vector):
+def normalise(vector):  # returns vector with magnitude 1 (so its directional components)
     magnitude = find_magnitude(vector)
     if magnitude == 0 or magnitude == 1:  # todo "or magnitude == 1" should I include?
         return vector
@@ -68,7 +64,7 @@ def find_rotation_matrix(new_x, new_z):  # returns rotation matrix to rotate an 
     # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.html
 
 
-def sphere_maker(n):
+def sphere_points_maker(n):  # returns n points on a unit sphere (roughly) evenly distributed
     indices = np.arange(0, n, 1) + 0.5  # todo this 0.5 is not random and must be optimised for each n value
     # https://newbedev.com/evenly-distributing-n-points-on-a-sphere
     phi = np.arccos(1 - indices.dot(2 / n))
@@ -81,13 +77,14 @@ def my_cross(v1, v2):  # for some reason crossing like this is a about 20x faste
 
 
 class Container:
-    """gives container properties and dynamics"""
+    """
+    manages container properties and dynamics
+    """
 
     def __init__(self):
         self.container_radius = float(d.getter("container_radius"))
         self.container_amplitude = float(d.getter("container_amplitude"))
         self.container_omega = float(d.getter("container_omega"))
-        # self.time_step = float(d.getter("time_step"))
         self.container_amplitude_by_omega = self.container_amplitude * self.container_omega
 
     def container_height(self, t):  # gives the height of the floor at time t with amplitude a and frequency k
@@ -102,47 +99,37 @@ class Container:
 
 
 class ParticlePatches:
-    """particle patch tracking"""
+    """
+    manages particle patches
+    """
 
     def __init__(self):
         n = int(d.getter("number_of_patches"))
-        points = sphere_maker(n)  # todo put straight into KDTree? after debugging it lol
-        # todo store points in the same place as I store how many each point gets! :o that'd b pretty cool
+        points = sphere_points_maker(n)  # todo put straight into KDTree? after debugging it lol
         self.tree = KDTree(points)  # points should have dimensions (n, 3)
-        self.points_and_hits = np.zeros([n, 4])
-        self.points_and_hits[:, :-1] = points  # todo instead of :-1 I could do it to specifically 3D, or do it general
-        self.is_new_collision = True
-        # todo for speed, move is_new_collision to be in particle? the if can be in particle.
 
         self.patches_file = open("patches", "w")
-        first_line = "Format: alternating lines, first is iteration number of collision, second is patch hit number"
+        first_line = "Format: alternating lines, first is iteration number of collision, second is patch index of hit"
         self.patches_file.writelines(first_line)
-        second_line = f"\n{0}\n{','.join([str(element) for element in self.points_and_hits[:, 3].T])}"
-        self.patches_file.writelines(second_line)
 
     def patch_tracker(self, t, pos, particle_x, particle_z):  # input pos is position relative to container
-        if self.is_new_collision:
-            point_number = self.tree.query(find_rotation_matrix(particle_x, particle_z).dot(normalise(pos)), k=1)[1]
-            # output of query is distance, i so we only care about i
-            self.points_and_hits[point_number, 3] += 1  # adds 1 to the number of hits for this patch
-            write = f"\n{t}\n{','.join([str(element) for element in self.points_and_hits[:, 3].T])}"
-            self.patches_file.writelines(write)
-            # make sure the next calls don't update the patches unless it is a new collision
-            # todo this biases the first patch touched (bias direction -avg_angular_velocity)
-            self.is_new_collision = False
+        write = f"\n{t}\n{self.tree.query(find_rotation_matrix(particle_x, particle_z).dot(normalise(pos)), k=1)[1]}"
+        # output of query is [distance_to_nearest_point, point_number] so we only care about output 1
+        self.patches_file.writelines(write)
 
     def close(self):
         self.patches_file.close()
 
 
 class Particle:
-    """manages particle properties and forces"""
+    """
+    manages particle properties and forces
+    """
 
-    def __init__(self):
-        self.cont = c
-        self.part_patch = p_p
+    def __init__(self, step, g):
+        self.p_p = ParticlePatches()
+        self.c = Container()
 
-        g = float(d.getter("g"))
         self.radius, self.density = float(d.getter("radius")), float(d.getter("density"))
         self.mass, self.moment_of_inertia = float(d.getter("mass")), float(d.getter("moment_of_inertia"))
         self.spring_constant, self.damping = float(d.getter("spring_constant")), float(d.getter("damping"))
@@ -154,38 +141,44 @@ class Particle:
         self.particle_z = normalise(my_cross(np.array([0, 0, 1]), self.particle_x))
         self.omega = np.array([float(d.getter("omega_x")), float(d.getter("omega_y")), float(d.getter("omega_z"))])
         self.mu, self.gamma_t = float(d.getter("mu")), float(d.getter("gamma_t"))
+        self.force_multiplier = step / (2 * self.mass)
+        self.torque_multiplier = step / (2 * self.moment_of_inertia)
 
-        self.radii_difference = self.cont.container_radius - self.radius
+        self.radii_difference = self.c.container_radius - self.radius
         self.gravity_force = np.array([0, 0, g]).dot(self.mass)
 
         self.overlap, self.overlap_speed = 0, 0
         self.contact = False
+        self.is_new_collision = True
 
-    def update(self, time, patch):
+    def update(self, t, do_patches):
         # distances
-        container_height = self.cont.container_height(time)  # todo do this with container_radius as well? check speed.
+        container_height = self.c.container_height(t)  # todo do this with container_radius as well? check speed.
         self.find_overlap(container_height)
         if self.overlap >= 0:
             self.contact = False
-            self.part_patch.is_new_collision = True
+            self.is_new_collision = True
             return self.gravity_force, np.array([0, 0, 0])
         self.contact = True
         # patches
-        if patch:
-            self.part_patch.patch_tracker(
-                time, self.pos - np.array([0, 0, container_height]), self.particle_x, self.particle_z)
-            # todo do container patches as well
+        # todo do container patches as well
+        if do_patches and self.is_new_collision:
+            self.p_p.patch_tracker(
+                t, self.pos - np.array([0, 0, container_height]), self.particle_x, self.particle_z)
+            self.is_new_collision = False
+            # make sure the next calls don't update the patches unless it is a new collision
+            # todo this biases the first patch touched (bias direction -avg_angular_velocity)
         # forces
-        normal_force, normal = self.find_normal_force(container_height, time)
+        normal_force, normal = self.find_normal_force(container_height, t)
         tangent_force = self.find_tangent_force(normal_force, normal)
         return self.gravity_force + normal_force + tangent_force, -my_cross(normal.dot(self.radius), tangent_force)
 
     def find_overlap(self, container_height):
         self.overlap = self.radii_difference - find_magnitude(self.pos - np.array([0, 0, container_height]))
 
-    def find_normal_force(self, container_height, time):
+    def find_normal_force(self, container_height, t):
         normal = normalise(self.pos - np.array([0, 0, container_height]))
-        self.overlap_speed = self.velocity - np.array([0, 0, self.cont.container_speed(time)])
+        self.overlap_speed = self.velocity - np.array([0, 0, self.c.container_speed(t)])
         return normal.dot(self.spring_constant * self.overlap - self.damping * normal.dot(self.overlap_speed)), normal
 
     def find_tangent_force(self, normal_contact_force, normal):
@@ -197,69 +190,75 @@ class Particle:
         tangent_direction = tangent_surface_relative_velocity.dot(1 / xi_dot)
         return tangent_direction.dot(-min(self.gamma_t * xi_dot, self.mu * find_magnitude(normal_contact_force)))
 
+    def find_energy(self):
+        return (-self.gravity_force.dot(self.pos) +
+                0.5 * self.mass * self.velocity.dot(self.velocity) +
+                0.5 * self.spring_constant * self.overlap ** 2 +
+                0.5 * self.moment_of_inertia * self.omega.dot(self.omega))
+        # todo check the angular energy here  - in fact check all of it
+
+    def integrate(self, t, step):
+        force, torque = self.update(t, True)
+        self.velocity = self.velocity + force.dot(self.force_multiplier)
+        self.omega = self.omega + torque.dot(self.torque_multiplier)
+        self.pos = self.pos + self.velocity.dot(step)
+        angles = self.omega.dot(-step)  # todo negative here? why?
+        self.particle_x = normalise(rotate(angles, self.particle_x))
+        self.particle_z = normalise(rotate(angles, self.particle_z))
+        force, torque = self.update(t, False)
+        self.velocity = self.velocity + force.dot(self.force_multiplier)
+        self.omega = self.omega + torque.dot(self.torque_multiplier)
+
 
 class Engine:
     """integrates and stores"""
 
     def __init__(self):
-        self.cont = c
-        self.part = p
-
+        self.g = float(d.getter("g"))
         self.time_end, self.time_step = float(d.getter("time_end")), float(d.getter("time_step"))
-        self.time_warp = int(d.getter("time_warp"))
-        self.force_multiplier = self.time_step / (2 * self.part.mass)
-        self.torque_multiplier = self.time_step / (2 * self.part.moment_of_inertia)
+        self.store_interval = int(d.getter("store_interval"))
+        self.p = Particle(self.time_step, self.g)
 
         self.data_file = open("data_dump", "w")
         defaults = open("default_settings", "r")
         self.data_file.writelines(defaults.read())
         defaults.close()
-        info_line = "iteration," + "time," + "pos_x," + "pos_y," + "pos_z," + \
-                    "lump_one_x," + "lump_one_y," + "lump_one_z," + \
-                    "lump_two_x," + "lump_two_y," + "lump_two_z," + \
-                    "container_pos," + "energy," + "contact"
+        info_line = (
+                "iteration," + "time," + "pos_x," + "pos_y," + "pos_z," +
+                "particle_x_axis_x," + "particle_x_axis_y," + "particle_x_axis_z," +
+                "particle_z_axis_x," + "particle_z_axis_y," + "particle_z_axis_z," +
+                "container_pos," + "energy," + "contact"
+        )
         self.data_file.writelines(info_line)
 
         self.total_store = 0
 
-    def single_step(self, j):
-        time = j * self.time_step
-        if j % self.time_warp == 0:
-            self.store(j, time)
-        # step forwards by integration
-        self.integrate(time)
-
-    def integrate(self, time):
-        force, torque = self.part.update(time, True)
-        self.part.velocity = self.part.velocity + force.dot(self.force_multiplier)
-        self.part.omega = self.part.omega + torque.dot(self.torque_multiplier)
-        self.part.pos = self.part.pos + self.part.velocity.dot(self.time_step)
-        angles = self.part.omega.dot(-self.time_step)  # todo negative here? why?
-        self.part.particle_x = normalise(rotate(angles, self.part.particle_x))
-        self.part.particle_z = normalise(rotate(angles, self.part.particle_z))
-        force, torque = self.part.update(time, False)
-        self.part.velocity = self.part.velocity + force.dot(self.force_multiplier)
-        self.part.omega = self.part.omega + torque.dot(self.torque_multiplier)
-
-    def store(self, j, time):
-        lump_one = self.part.particle_x
-        lump_two = self.part.particle_z
-        part_pos = self.part.pos
-
-        energy = (-self.part.gravity_force.dot(part_pos) +
-                  0.5 * self.part.mass * self.part.velocity.dot(self.part.velocity) +
-                  0.5 * self.part.spring_constant * self.part.overlap ** 2 +
-                  0.5 * self.part.moment_of_inertia * self.part.omega.dot(self.part.omega))
-        # todo check the angular energy here
-
-        data = f"\n{j},{time},{part_pos[0]},{part_pos[1]},{part_pos[2]},{lump_one[0]},{lump_one[1]},{lump_one[2]}," +\
-               f"{lump_two[0]},{lump_two[1]},{lump_two[2]},{self.cont.container_height(time)},{energy}," +\
-               f"{self.part.contact}"
+    def store(self, j, t):
+        lump_one = self.p.particle_x
+        lump_two = self.p.particle_z
+        part_pos = self.p.pos
+        # todo these^ might not be any faster
+        data = (
+            f"\n{j},{t},{part_pos[0]:.5g},{part_pos[1]:.5g},{part_pos[2]:.5g},"
+            f"{lump_one[0]:.5g},{lump_one[1]:.5g},{lump_one[2]:.5g},"
+            f"{lump_two[0]:.5g},{lump_two[1]:.5g},{lump_two[2]:.5g},"
+            f"{self.p.c.container_height(t):.5g},{self.p.find_energy()},{self.p.contact}"
+        )
         self.data_file.writelines(data)
         self.total_store += 1
 
+    def run(self):
+        for i in tqdm(range(int(d.getter("total_steps")))):
+            time = i * self.time_step
+            # store if this is a store step
+            if i % self.store_interval == 0:
+                e.store(i, time)
+            # step forwards by integration
+            self.p.integrate(time, self.time_step)
+
     def close(self):
         self.data_file.close()
+        self.p.p_p.close()
 
 
 # Press the green button in the gutter to run the script.
@@ -267,7 +266,10 @@ if __name__ == '__main__':
     from tqdm import tqdm
     from defaults import Defaults
     from reader import Animator
-    from reader import Analyser
+    from reader import plot_energy, plot_patches
+
+    # from defualts2 import Defs
+    # defs = Defs()
 
     # todo better way of choosing what to do please? True False commenting out is strange
 
@@ -285,35 +287,28 @@ if __name__ == '__main__':
 
     if do_physics:
         print("doing physics...")
-        c = Container()
-        p = Particle()
-        e = Engine()
-        p_p = ParticlePatches()
-        # todo could be a bigger problem with my code, as each time I define p = Particle() I run __init__? slows down
-        for i in tqdm(range(int(d.getter("total_steps")))):
-            e.single_step(i)
-        p_p.close()
+        e = Engine()  # todo input get_new_conditions
+        e.run()
         e.close()
         print("physics is done")
     else:
         print("kept previous physics")
 
-    do_animate = False
-    # do_animate = True
+    # do_animate = False
+    do_animate = True
     if do_animate:
         print("animating....")
         Animator().animate(int(d.getter("total_store")))
 
-    # do_analysis = False
-    do_analysis = True
+    do_analysis = False
+    # do_analysis = True
     if do_analysis:
         print("analysing....")
-        a = Analyser()
-        do_energy = False
-        # do_energy = True
-        if do_energy:
-            a.plot_energy()
-        # do_patches = False
-        do_patches = True
-        if do_patches:
-            a.plot_patches()
+        # do_energy_analysis = False
+        do_energy_analysis = True
+        # do_patch_analysis = False
+        do_patch_analysis = True
+        if do_energy_analysis:
+            plot_energy(do_patch_analysis)
+        if do_patch_analysis:
+            plot_patches()
