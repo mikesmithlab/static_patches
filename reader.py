@@ -4,8 +4,8 @@ import pygame as pg
 from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
-from main import rotate, normalise, sphere_points_maker, find_rotation_matrix, my_cross
-from defaults import Defaults
+
+from main import opts, rotate, normalise, sphere_points_maker, find_rotation_matrix, my_cross
 
 
 def find_truth(o, n):  # old, new positions
@@ -16,8 +16,7 @@ def find_truth(o, n):  # old, new positions
 
 
 def plot_energy(do_i_need_to_show):
-    d = Defaults()
-    time_list = np.linspace(0, float(d.getter("time_end")), num=int(d.getter("total_store")))
+    time_list = np.linspace(0, opts["time_end"], num=opts["total_store"])
     try:
         data_file = open("data_dump", "r")
     except FileNotFoundError:
@@ -87,13 +86,10 @@ class Animator:
     """
 
     def __init__(self):
-        from defaults import Defaults
-        d = Defaults()
-
-        self.container_radius, self.radius = float(d.getter("container_radius")), float(d.getter("radius"))
+        self.container_radius, self.radius = opts["container_radius"], opts["radius"]
         self.small_radius = self.radius / 16
-        self.time_between_frames = int(d.getter("store_interval")) * float(d.getter("time_step"))
-        n = int(d.getter("number_of_patches"))
+        self.time_between_frames = opts["store_interval"] * opts["time_step"]
+        n = opts["number_of_patches"]
 
         self.data_file = open("data_dump", "r")
         self.patch_file = open("patches", "r")
