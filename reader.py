@@ -4,8 +4,10 @@ import pygame as pg
 from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
+
 from main import rotate, normalise, sphere_points_maker, find_rotation_matrix, my_cross
-from defaults import Defaults
+from conditions import get_options
+opts = get_options()
 
 
 def find_truth(o, n):  # old, new positions
@@ -16,8 +18,7 @@ def find_truth(o, n):  # old, new positions
 
 
 def plot_energy(do_i_need_to_show):
-    d = Defaults()
-    time_list = np.linspace(0, float(d.getter("time_end")), num=int(d.getter("total_store")))
+    time_list = np.linspace(0, opts["time_end"], num=opts["total_store"])
     try:
         data_file = open("data_dump", "r")
     except FileNotFoundError:
@@ -87,13 +88,10 @@ class Animator:
     """
 
     def __init__(self):
-        from defaults import Defaults
-        d = Defaults()
-
-        self.container_radius, self.radius = float(d.getter("container_radius")), float(d.getter("radius"))
+        self.container_radius, self.radius = opts["container_radius"], opts["radius"]
         self.small_radius = self.radius / 16
-        self.time_between_frames = int(d.getter("store_interval")) * float(d.getter("time_step"))
-        n = int(d.getter("number_of_patches"))
+        self.time_between_frames = opts["store_interval"] * opts["time_step"]
+        n = opts["number_of_patches"]
 
         self.data_file = open("data_dump", "r")
         self.patch_file = open("patches", "r")
@@ -141,7 +139,7 @@ class Animator:
             except ValueError:
                 self.finished_patches = True
 
-    def animate(self, total_frames):
+    def animate(self):
         pg.init()
 
         display = (int(1280 * 3 / 4), int(1024 * 3 / 4))  # 1280 x 1024
@@ -176,7 +174,7 @@ class Animator:
         up = False
         down = False
         # pause = False
-        for f in range(total_frames):
+        for f in range(opts["total_store"]):
             # while pause:
             #     for event in pg.event.get():
             #         if event.type == pg.QUIT:
