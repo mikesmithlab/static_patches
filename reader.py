@@ -5,7 +5,9 @@ from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-from main import opts, rotate, normalise, sphere_points_maker, find_rotation_matrix, my_cross
+from main import rotate, normalise, sphere_points_maker, find_rotation_matrix, my_cross
+from conditions import get_options
+opts = get_options()
 
 
 def find_truth(o, n):  # old, new positions
@@ -137,7 +139,7 @@ class Animator:
             except ValueError:
                 self.finished_patches = True
 
-    def animate(self, total_frames):
+    def animate(self):
         pg.init()
 
         display = (int(1280 * 3 / 4), int(1024 * 3 / 4))  # 1280 x 1024
@@ -172,7 +174,7 @@ class Animator:
         up = False
         down = False
         # pause = False
-        for f in range(total_frames):
+        for f in range(opts["total_store"]):
             # while pause:
             #     for event in pg.event.get():
             #         if event.type == pg.QUIT:

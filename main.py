@@ -47,13 +47,13 @@ def rotate(rotation, vector):  # returns vector after being rotated by euler ang
         np.cos(rotation_magnitude / 2), *(rotation.dot(np.sin(rotation_magnitude / 2) / rotation_magnitude))], vector))
 
 
-def find_magnitude(vector):  # very fast magnitude finder for numpy vectors
+def find_magnitude(vector):  # returns magnitude of vector (very fast magnitude finder for numpy vectors)
     return vector.dot(vector) ** 0.5
 
 
-def normalise(vector):  # returns vector with magnitude 1 (so its directional components)
+def normalise(vector):  # returns vector with magnitude 1 (vector's directional components)
     magnitude = find_magnitude(vector)
-    if magnitude == 0 or magnitude == 1:  # todo "or magnitude == 1" should I include?
+    if magnitude == 0 or magnitude == 1:
         return vector
     return vector.dot(1 / magnitude)
 
@@ -72,40 +72,35 @@ def sphere_points_maker(n):  # returns n points on a unit sphere (roughly) evenl
     return np.array([np.cos(theta) * np.sin(phi), np.sin(theta) * np.sin(phi), np.cos(phi)]).T
 
 
-def my_cross(v1, v2):  # for some reason crossing like this is a about 20x faster than np.cross???
+def my_cross(v1, v2):  # returns cross product of v1 and v2 (for some reason this is a about 20x faster than np.cross!)
     return np.array([v1[1] * v2[2] - v1[2] * v2[1], v1[2] * v2[0] - v1[0] * v2[2], v1[0] * v2[1] - v1[1] * v2[0]])
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    from conditions import get_options
-    opts = get_options()
-    from objects import Engine
-    from reader import Animator, plot_energy, plot_patches
-
     # todo better way of choosing what to do please? True False commenting out is strange
-
-    print("kept previous initial conditions")
-    
-    # do_physics = False
-    do_physics = True
+    print("kept previous initial conditions")  # todo lol
+    do_physics = False
+    # do_physics = True
     if do_physics:
         print("doing physics...")
-        e = Engine()  # todo input get_new_conditions
-        e.run()
-        e.close()
+        from objects import Engine
+        Eng = Engine()
+        Eng.run()
+        Eng.close()
         print("physics is done")
     else:
         print("kept previous physics")
 
-    # do_animate = False
-    do_animate = True
+    do_animate = False
+    # do_animate = True
     if do_animate:
         print("animating....")
-        Animator().animate(opts["total_store"])
+        from reader import Animator
+        Animator().animate()
 
-    do_analysis = False
-    # do_analysis = True
+    # do_analysis = False
+    do_analysis = True
     if do_analysis:
         print("analysing....")
         # do_energy_analysis = False
@@ -113,6 +108,8 @@ if __name__ == '__main__':
         # do_patch_analysis = False
         do_patch_analysis = True
         if do_energy_analysis:
+            from reader import plot_energy
             plot_energy(do_patch_analysis)
         if do_patch_analysis:
+            from reader import plot_patches
             plot_patches()

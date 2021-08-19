@@ -2,7 +2,9 @@ import numpy as np
 from scipy.spatial import KDTree
 from tqdm import tqdm
 
-from main import opts, find_magnitude, rotate, normalise, find_rotation_matrix, my_cross, sphere_points_maker
+from main import find_magnitude, rotate, normalise, find_rotation_matrix, my_cross, sphere_points_maker
+from conditions import get_options
+opts = get_options()
 
 
 class Container:
@@ -59,17 +61,16 @@ class Particle:
         self.p_p = ParticlePatches()
         self.c = Container()
 
-        self.radius, self.density = float(opts["radius"]), float(opts["density"])
-        self.mass, self.moment_of_inertia = float(opts["mass"]), float(opts["moment_of_inertia"])
-        self.spring_constant, self.damping = float(opts["spring_constant"]), float(opts["damping"])
-        self.pos = np.array([float(opts["pos_x"]), float(opts["pos_y"]), float(opts["pos_z"])])
-        self.velocity = np.array(
-            [float(opts["velocity_x"]), float(opts["velocity_y"]), float(opts["velocity_z"])])
+        self.radius, self.density = opts["radius"], opts["density"]
+        self.mass, self.moment_of_inertia = opts["mass"], opts["moment_of_inertia"]
+        self.spring_constant, self.damping = opts["spring_constant"], opts["damping"]
+        self.pos = opts["pos"]
+        self.velocity = opts["velocity"]
         self.particle_x = normalise(np.array(
             [np.exp(0.5345), np.sqrt(0.456), np.pi / 11]))  # some random numbers so it isn't along any particular axis
         self.particle_z = normalise(my_cross(np.array([0, 0, 1]), self.particle_x))
-        self.omega = np.array([float(opts["omega_x"]), float(opts["omega_y"]), float(opts["omega_z"])])
-        self.mu, self.gamma_t = float(opts["mu"]), float(opts["gamma_t"])
+        self.omega = opts["omega"]
+        self.mu, self.gamma_t = opts["mu"], opts["gamma_t"]
         self.force_multiplier = step / (2 * self.mass)
         self.torque_multiplier = step / (2 * self.moment_of_inertia)
 
