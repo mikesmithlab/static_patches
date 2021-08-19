@@ -3,8 +3,8 @@ from scipy.spatial import KDTree
 from tqdm import tqdm
 
 from main import find_magnitude, rotate, normalise, find_rotation_matrix, my_cross, sphere_points_maker
-from conditions import get_options
-opts = get_options()
+from conditions import get_conditions
+conds = get_conditions(filename="conds.txt")
 
 
 class Container:
@@ -13,18 +13,19 @@ class Container:
     """
 
     def __init__(self):
-        self.container_radius = float(opts["container_radius"])
-        self.container_amplitude = float(opts["container_amplitude"])
-        self.container_omega = 2 * np.pi * float(opts["container_frequency"])
+        self.container_radius = conds["container_radius"]
+        self.container_amplitude = conds["container_amplitude"]
+        self.container_omega = conds["container_omega"]
+        self.container_time_end = conds["container_time_end"]
         self.container_amplitude_by_omega = self.container_amplitude * self.container_omega
 
     def container_height(self, t):  # gives the height of the floor at time t with amplitude a and frequency k
-        if t >= 48:
+        if t >= self.container_time_end:
             return 0
         return self.container_amplitude * np.sin(self.container_omega * t)
 
     def container_speed(self, t):  # gives the speed of the floor at time t
-        if t >= 48:
+        if t >= self.container_time_end:
             return 0
         return self.container_amplitude_by_omega * np.cos(self.container_omega * t)
 
@@ -35,7 +36,7 @@ class ParticlePatches:
     """
 
     def __init__(self):
-        n = int(opts["number_of_patches"])
+        n = conds["number_of_patches"]
         points = sphere_points_maker(n)  # todo put straight into KDTree? after debugging it lol
         self.tree = KDTree(points)  # points should have dimensions (n, 3)
 
@@ -61,16 +62,16 @@ class Particle:
         self.p_p = ParticlePatches()
         self.c = Container()
 
-        self.radius, self.density = opts["radius"], opts["density"]
-        self.mass, self.moment_of_inertia = opts["mass"], opts["moment_of_inertia"]
-        self.spring_constant, self.damping = opts["spring_constant"], opts["damping"]
-        self.pos = opts["pos"]
-        self.velocity = opts["velocity"]
+        self.radius, self.density = conds["radius"], conds["density"]
+        self.mass, self.moment_of_inertia = conds["mass"], conds["moment_of_inertia"]
+        self.spring_constant, self.damping = conds["spring_constant"], conds["damping"]
+        self.pos = conds["pos"]
+        self.velocity = conds["velocity"]
         self.particle_x = normalise(np.array(
             [np.exp(0.5345), np.sqrt(0.456), np.pi / 11]))  # some random numbers so it isn't along any particular axis
         self.particle_z = normalise(my_cross(np.array([0, 0, 1]), self.particle_x))
-        self.omega = opts["omega"]
-        self.mu, self.gamma_t = opts["mu"], opts["gamma_t"]
+        self.omega = conds["omega"]
+        self.mu, self.gamma_t = conds["mu"], conds["gamma_t"]
         self.force_multiplier = step / (2 * self.mass)
         self.torque_multiplier = step / (2 * self.moment_of_inertia)
 
@@ -144,13 +145,13 @@ class Engine:
     """integrates and stores"""
 
     def __init__(self):
-        self.g = float(opts["g"])
-        self.time_end, self.time_step = float(opts["time_end"]), float(opts["time_step"])
-        self.store_interval = int(opts["store_interval"])
+        self.g = conds["g"]
+        self.time_end, self.time_step = conds["time_end"], conds["time_step"]
+        self.store_interval = conds["store_interval"]
         self.p = Particle(self.time_step, self.g)
 
         self.data_file = open("data_dump", "w")
-        defaults = open("default_settings", "r")
+        defaults = open("conds.txt", "r")
         self.data_file.writelines(defaults.read())
         defaults.close()
         info_line = (
@@ -178,7 +179,7 @@ class Engine:
         self.total_store += 1
 
     def run(self):
-        for i in tqdm(range(int(opts["total_steps"]))):
+        for i in tqdm(range(conds["total_steps"])):
             time = i * self.time_step
             # store if this is a store step
             if i % self.store_interval == 0:

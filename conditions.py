@@ -1,45 +1,96 @@
 import numpy as np
 
 
-def get_options():
-    opts = {
+def get_conditions(filename=None):
+    # if filename is given, conds comes from file (or is written to it if it doesn't exist)
+    # if filename isn't given, conds defaults to the below dictionary
+    conds = {
         'g': -9.81,
         'radius': 5 / 1000,
-        'container_radius': 20 / 1000,
         'density': 1000,
-        'container_amplitude': 2 / 1000,
-        'container_frequency': 20,
         'coefficient_of_restitution': 0.8,
         'mu': 0.5,
         'gamma_t': 0.8,
-        'time_end': 50,
+        'container_radius': 20 / 1000,
+        'container_amplitude': 2 / 1000,
+        'container_omega': 20 * 2 * np.pi,
         'number_of_patches': int(200),
-        'pos': np.array([0.001, 0.002 ** 0.5, 0]),
-        'velocity': np.array([0.02 ** 0.4, 0.02 ** 0.6, 0]),
+        'pos': np.array([0.001, -0.001, 0]),
+        'velocity': np.array([0.1 * 2 ** 0.4, 0.1 * 2 ** 0.6, 0]),
         'omega': 0 * np.array([50 * 2 * np.pi, 5 * 2 * np.pi, 12 * 2 * np.pi]),
+        'time_end': 6,
+        'container_time_end': 5.8,
+        'time_warp': 2 / 20,
+        'refresh_rate': 144,
     }
-    # exec(open(filename).read())
+
+    if filename is not None:
+        try:
+            file = open(filename, "r")
+            try:
+                file.readline()
+                field = file.readline().strip().split(",")
+                conds = {
+                    'g': float(field[0]),
+                    'radius': float(field[1]),
+                    'density': float(field[2]),
+                    'coefficient_of_restitution': float(field[3]),
+                    'mu': float(field[4]),
+                    'gamma_t': float(field[5]),
+                    'container_radius': float(field[6]),
+                    'container_amplitude': float(field[7]),
+                    'container_omega': float(field[8]),
+                    'number_of_patches': int(field[9]),
+                    'pos': np.array([float(field[10]), float(field[11]), float(field[12])]),
+                    'velocity': np.array([float(field[13]), float(field[14]), float(field[15])]),
+                    'omega': np.array([float(field[16]), float(field[17]), float(field[18])]),
+                    'time_end': float(field[19]),
+                    'container_time_end': float(field[20]),
+                    'time_warp': float(field[21]),
+                    'refresh_rate': float(field[22]),
+                }
+            except ValueError:
+                print(f"Wrong format of given file: {filename}. Ignoring the file: using default conds")
+        except FileNotFoundError:
+            print(f"Can't find {filename}. Making new with default conds")
+            file = open(filename, "w")
+            l1 = (
+                f"g,radius,density,coefficient_of_restitution,mu,gamma_t,container_radius,container_amplitude,"
+                f"container_omega,container_stop_time,number_of_patches,pos(3),velocity(3),omega(3),time_end,time_warp,"
+                f"refresh_rate\n"
+            )
+            p = conds['pos']
+            v = conds['velocity']
+            o = conds['omega']
+            l2 = (
+                f"{conds['g']},{conds['radius']},{conds['density']},{conds['coefficient_of_restitution']},"
+                f"{conds['mu']},{conds['gamma_t']},{conds['container_radius']},{conds['container_amplitude']},"
+                f"{conds['container_omega']},{conds['number_of_patches']},{p[0]},{p[1]},{p[2]},{v[0]},{v[1]},{v[2]},"
+                f"{o[0]},{o[1]},{o[2]},{conds['time_end']},{conds['container_time_end']},{conds['time_warp']},"
+                f"{conds['refresh_rate']}"
+            )
+            file.writelines(l1)
+            file.writelines(l2)
+        file.close()
 
     # ---------------------------------------
     # Don't change anything below this point!
     # ---------------------------------------
 
     # object properties
-    opts['mass'] = opts['density'] * (4 / 3) * np.pi * opts['radius'] ** 3
-    opts['moment_of_inertia'] = (2 / 5) * opts['mass'] * opts['radius'] ** 2
-    opts['spring_constant'] = (100 * opts['mass'] / opts['radius']) * (
-            np.sqrt(np.sum(opts['g'] ** 2)) + 2 * opts['container_amplitude'] * opts['container_frequency'] ** 2)
-    opts['damping'] = (-2) * opts['mass'] * np.sqrt(
-        opts['spring_constant'] / opts['mass']) * np.log(opts['coefficient_of_restitution']) / np.pi
+    conds['mass'] = conds['density'] * (4 / 3) * np.pi * conds['radius'] ** 3
+    conds['moment_of_inertia'] = (2 / 5) * conds['mass'] * conds['radius'] ** 2
+    conds['spring_constant'] = (100 * conds['mass'] / conds['radius']) * (
+            (conds['g'] ** 2) ** 0.5 + 2 * conds['container_amplitude'] * conds['container_omega'] ** 2)
+    conds['damping'] = (-2 / np.pi) * conds['mass'] * np.log(conds['coefficient_of_restitution']) * (
+            conds['spring_constant'] / conds['mass']) ** 0.5
 
     # timing
-    opts['time_step'] = (1 / 50) * np.pi * np.sqrt((opts['mass'] / opts['spring_constant']))
-    opts['total_steps'] = int(opts['time_end'] / opts['time_step'])
+    conds['time_step'] = (1 / 50) * np.pi * np.sqrt((conds['mass'] / conds['spring_constant']))
+    conds['total_steps'] = int(conds['time_end'] / conds['time_step'])
     # total_steps = (t_end / t_step) + ((int(t_end / t_step) - (t_end / t_step))) != 0)  # todo round up integer?
-    # opts['store_interval'] = int((6 / 50) / (opts['time_step'] * 60))  # 60Hz
-    opts['store_interval'] = int((6 / 50) / (opts['time_step'] * 144))  # 144Hz
-    opts['total_store'] = int(opts['total_steps'] / opts['store_interval']) + (
-            opts['total_steps'] % opts['store_interval'] > 0)  # round up int because of 0th frame
+    conds['store_interval'] = int(conds['time_warp'] / (conds['time_step'] * conds['refresh_rate']))
+    conds['total_store'] = int(conds['total_steps'] / conds['store_interval']) + (
+            conds['total_steps'] % conds['store_interval'] > 0)  # round up int because of 0th frame
 
-    print(opts)
-    return opts
+    return conds

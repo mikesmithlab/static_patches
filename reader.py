@@ -6,8 +6,8 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 
 from main import rotate, normalise, sphere_points_maker, find_rotation_matrix, my_cross
-from conditions import get_options
-opts = get_options()
+from conditions import get_conditions
+conds = get_conditions(filename="conds.txt")
 
 
 def find_truth(o, n):  # old, new positions
@@ -18,7 +18,7 @@ def find_truth(o, n):  # old, new positions
 
 
 def plot_energy(do_i_need_to_show):
-    time_list = np.linspace(0, opts["time_end"], num=opts["total_store"])
+    time_list = np.linspace(0, conds["time_end"], num=conds["total_store"])
     try:
         data_file = open("data_dump", "r")
     except FileNotFoundError:
@@ -30,10 +30,10 @@ def plot_energy(do_i_need_to_show):
     i = -3
     for line in data_file:
         if i >= 0:  # get out of the way of the first few lines of non-data
-            this_line = line.strip()
-            field = this_line.split(",")
+            field = line.strip().split(",")
             energy_list[i] = float(field[12])
         i += 1
+    data_file.close()
 
     fig_e = plt.figure()
     mngr_e = plt.get_current_fig_manager()
@@ -68,6 +68,8 @@ def plot_patches():
                     patch_hit_list[j, :] = patch_hit_list[j - 1, :]  # cumulative
                 patch_hit_list[j, int(line)] += 1  # add one to the number of collisions this patch has
         i += 1
+    patch_file.close()
+
     fig_p = plt.figure()
     mngr_p = plt.get_current_fig_manager()
     # mngr_p.window.setGeometry(475, 175, 850, 545)
@@ -88,10 +90,10 @@ class Animator:
     """
 
     def __init__(self):
-        self.container_radius, self.radius = opts["container_radius"], opts["radius"]
+        self.container_radius, self.radius = conds["container_radius"], conds["radius"]
         self.small_radius = self.radius / 16
-        self.time_between_frames = opts["store_interval"] * opts["time_step"]
-        n = opts["number_of_patches"]
+        self.time_between_frames = conds["store_interval"] * conds["time_step"]
+        n = conds["number_of_patches"]
 
         self.data_file = open("data_dump", "r")
         self.patch_file = open("patches", "r")
@@ -107,9 +109,7 @@ class Animator:
             self.data_file = open("data_dump", "r")
             for n in range(3):
                 self.data_file.readline()  # get out of the way of the first few lines of non-data
-        this_line = self.data_file.readline()
-        this_line = this_line.strip()
-        field = this_line.split(",")
+        field = self.data_file.readline().strip().split(",")
         time_two_dp = "{:.2f}".format(float(field[1]))
         pg.display.set_caption(f"pyopengl shaker, time = {time_two_dp}s")
         return np.array([float(field[2]), float(field[3]), float(field[4])]), np.array(
@@ -140,6 +140,7 @@ class Animator:
                 self.finished_patches = True
 
     def animate(self):
+        refresh_rate = conds["refresh_rate"]
         pg.init()
 
         display = (int(1280 * 3 / 4), int(1024 * 3 / 4))  # 1280 x 1024
@@ -174,7 +175,7 @@ class Animator:
         up = False
         down = False
         # pause = False
-        for f in range(opts["total_store"]):
+        for f in range(conds["total_store"]-1):
             # while pause:
             #     for event in pg.event.get():
             #         if event.type == pg.QUIT:
@@ -229,8 +230,7 @@ class Animator:
                     camera_pos = camera_radius * normalise(camera_pos)
 
             # camera rotation rate modifiers shift and ctrl
-            # rotate_amount_per_frame = (2 / 1000) * 2 * np.pi  # 60Hz
-            rotate_amount_per_frame = (1 / 1000) * 2 * np.pi  # 144Hz
+            rotate_amount_per_frame = refresh_rate * 1e-5 * 2 * np.pi
             if pg.key.get_mods() & pg.KMOD_SHIFT:
                 rotate_amount_per_frame *= 2
             elif pg.key.get_mods() & pg.KMOD_CTRL:
@@ -297,8 +297,7 @@ class Animator:
             self.draw_container(container_height, contact, "front")
 
             pg.display.flip()  # updates the screen with the new frame
-            # pg.time.wait(int((1000 / 60) - (pg.time.get_ticks() - elapsed_time)))  # 60Hz
-            pg.time.wait(int((1000 / 144) - (pg.time.get_ticks() - elapsed_time)))  # 144Hz
+            pg.time.wait(int((1000 / refresh_rate) - (pg.time.get_ticks() - elapsed_time)))
 
     def draw_particle_lump(self, pos, one_or_two, rgba):
         glPushMatrix()  # saves current matrix

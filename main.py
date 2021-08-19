@@ -14,8 +14,7 @@ import numpy as np
 # todo optimise for speed (side goal)
 # instead of v1 + v2 do np.add(v1, v2) or try the v1.add(v2)? check speed
 # todo 0.5? 1? what is the stepping? how exactly does the verlet work
-# todo reduce data_dump filesize by limiting precision! don't limit energy but limit everything else
-# todo do we ever need to define self.part = p? can we not just use p?
+# todo get_conditions should only be imported to main, then put into other classes as inputs
 
 
 def q_conjugate(q):  # return the conjugate of a quaternion
@@ -80,27 +79,27 @@ def my_cross(v1, v2):  # returns cross product of v1 and v2 (for some reason thi
 if __name__ == '__main__':
     # todo better way of choosing what to do please? True False commenting out is strange
     print("kept previous initial conditions")  # todo lol
-    do_physics = False
-    # do_physics = True
+    # do_physics = False
+    do_physics = True
     if do_physics:
         print("doing physics...")
         from objects import Engine
         Eng = Engine()
         Eng.run()
         Eng.close()
-        print("physics is done")
+        print("physics is done - data_dump has been written to")
     else:
-        print("kept previous physics")
+        print("kept previous physics - data_dump is unchanged")
 
-    do_animate = False
-    # do_animate = True
+    # do_animate = False
+    do_animate = True
     if do_animate:
         print("animating....")
         from reader import Animator
         Animator().animate()
 
-    # do_analysis = False
-    do_analysis = True
+    do_analysis = False
+    # do_analysis = True
     if do_analysis:
         print("analysing....")
         # do_energy_analysis = False
