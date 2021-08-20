@@ -4,12 +4,10 @@ import pygame as pg
 from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
-from main import rotate
-from main import normalise
-from main import sphere_maker
-from main import find_rotation_matrix
-from main import my_cross
-from defaults import Defaults
+
+from main import rotate, normalise, sphere_points_maker, find_rotation_matrix, my_cross
+from conditions import get_conditions
+conds = get_conditions(filename="conds.txt")
 
 
 def find_truth(o, n):  # old, new positions
@@ -19,93 +17,83 @@ def find_truth(o, n):  # old, new positions
     # todo this logic can be done better?
 
 
-class Analyser:
-    """reads and analyses"""
+def plot_energy(do_i_need_to_show):
+    time_list = np.linspace(0, conds["time_end"], num=conds["total_store"])
+    try:
+        data_file = open("data_dump", "r")
+    except FileNotFoundError:
+        print("You deleted the data_dump file or didn't make it with Engine")
+        raise FileNotFoundError
 
-    def __init__(self):
-        print("some analysis will happen now ---------- MAKE THIS NOT A CLASS")
+    energy_list = np.zeros(np.shape(time_list))
 
-    def plot_energy(self, do_i_need_to_show):
-        d = Defaults()
-        time_list = np.linspace(0, float(d.getter("time_end")), num=int(d.getter("total_store")))
-        try:
-            data_file = open("data_dump", "r")
-        except FileNotFoundError:
-            print("You deleted the data_dump file or didn't make it with Engine")
-            raise FileNotFoundError
+    i = -3
+    for line in data_file:
+        if i >= 0:  # get out of the way of the first few lines of non-data
+            field = line.strip().split(",")
+            energy_list[i] = float(field[12])
+        i += 1
+    data_file.close()
 
-        energy_list = np.zeros(np.shape(time_list))
+    fig_e = plt.figure()
+    mngr_e = plt.get_current_fig_manager()
+    # mngr_e.window.setGeometry(475, 175, 850, 545)
+    plt.plot(time_list, energy_list)
+    if do_i_need_to_show:
+        return
+    plt.show()
 
-        i = -3
-        for line in data_file:
-            if i >= 0:  # get out of the way of the first few lines of non-data
-                this_line = line.strip()
-                field = this_line.split(",")
-                energy_list[i] = float(field[12])
-            i += 1
 
-        fig_e = plt.figure()
-        mngr_e = plt.get_current_fig_manager()
-        # mngr_e.window.setGeometry(475, 175, 850, 545)
-        plt.plot(time_list, energy_list)
-        if do_i_need_to_show:
-            return
-        plt.show()
-
-    def plot_patches(self):
-        try:
-            patch_file = open("patches", "r")
-        except FileNotFoundError:
-            print("You deleted the patches file or didn't make it with ParticlePatches")
-            raise FileNotFoundError
-
-        plot_length = int((len(patch_file.readlines()) - 1) / 2)  # todo check this is the right number
-        hit_time_list = np.zeros(plot_length)
-        patch_list = np.zeros([plot_length, 200])  # todo 200 here should be n from the initial conditions dictionary
-
+def plot_patches():
+    try:
         patch_file = open("patches", "r")
+    except FileNotFoundError:
+        print("You deleted the patches file or didn't make it with ParticlePatches")
+        raise FileNotFoundError
 
-        i = -1
-        while True:  # is an alternative method to the for loop, which wasn't working before because I didn't read again
-            line = patch_file.readline()
-            if line == '':
-                break
-            if i >= 0:
-                if i % 2 == 0:
-                    hit_time_list[int(i / 2)] = float(line)
-                else:
-                    this_line = line.strip()
-                    field = this_line.split(",")
-                    j = 0
-                    for f in field:
-                        patch_list[int((i - 1) / 2), j] = float(f)
-                        j += 1
-            i += 1
-        fig_p = plt.figure()
-        mngr_p = plt.get_current_fig_manager()
-        # mngr_p.window.setGeometry(475, 175, 850, 545)
-        plt.plot(hit_time_list, patch_list)
-        plt.show()
+    plot_length = int((len(patch_file.readlines()) - 1) / 2)  # todo check this is the right number
+    hit_time_list = np.zeros(plot_length)
+    patch_hit_list = np.zeros([plot_length, 200])  # todo 200 here should be n from the initial conditions dictionary
 
-        # fig_e = plt.figure()
-        # mngr_e = plt.get_current_fig_manager()
-        # mngr_e.window.setGeometry(475, 175, 850, 545)
-        # plt.plot(time_list, energy_list, time_list, theta_dot_list)
-        # plt.figure()
-        # plt.plot(time_list, pos_list[1, :], time_list, pos_list[0, :], time_list, container_pos_list)
+    patch_file = open("patches", "r")
+
+    i = -1
+    for line in patch_file:
+        if i >= 0:
+            if i % 2 == 0:
+                hit_time_list[int(i / 2)] = float(line)  # store the time of this collision
+            else:
+                j = int((i - 1) / 2)
+                if i >= 2:
+                    patch_hit_list[j, :] = patch_hit_list[j - 1, :]  # cumulative
+                patch_hit_list[j, int(line)] += 1  # add one to the number of collisions this patch has
+        i += 1
+    patch_file.close()
+
+    fig_p = plt.figure()
+    mngr_p = plt.get_current_fig_manager()
+    # mngr_p.window.setGeometry(475, 175, 850, 545)
+    plt.plot(hit_time_list, patch_hit_list)
+    plt.show()
+
+    # fig_e = plt.figure()
+    # mngr_e = plt.get_current_fig_manager()
+    # mngr_e.window.setGeometry(475, 175, 850, 545)
+    # plt.plot(time_list, energy_list, time_list, theta_dot_list)
+    # plt.figure()
+    # plt.plot(time_list, pos_list[1, :], time_list, pos_list[0, :], time_list, container_pos_list)
 
 
 class Animator:
-    """reads and animates"""
+    """
+    reads from data_dump produced by Engine then animates the system
+    """
 
     def __init__(self):
-        from defaults import Defaults
-        d = Defaults()
-
-        self.container_radius, self.radius = float(d.getter("container_radius")), float(d.getter("radius"))
+        self.container_radius, self.radius = conds["container_radius"], conds["radius"]
         self.small_radius = self.radius / 16
-        self.time_between_frames = int(d.getter("time_warp")) * float(d.getter("time_step"))
-        n = int(d.getter("number_of_patches"))
+        self.time_between_frames = conds["store_interval"] * conds["time_step"]
+        n = conds["number_of_patches"]
 
         self.data_file = open("data_dump", "r")
         self.patch_file = open("patches", "r")
@@ -113,17 +101,15 @@ class Animator:
         self.sphere_quadric = gluNewQuadric()
         self.patch_hit_list = np.zeros([n, 1])
         self.next_hit_time = 0
-        self.patch_points = sphere_maker(n)
         self.finished_patches = False
+        self.patch_points = sphere_points_maker(n)
 
     def update_positions(self, f):  # input f is the frame number
         if f == 0:
             self.data_file = open("data_dump", "r")
             for n in range(3):
                 self.data_file.readline()  # get out of the way of the first few lines of non-data
-        this_line = self.data_file.readline()
-        this_line = this_line.strip()
-        field = this_line.split(",")
+        field = self.data_file.readline().strip().split(",")
         time_two_dp = "{:.2f}".format(float(field[1]))
         pg.display.set_caption(f"pyopengl shaker, time = {time_two_dp}s")
         return np.array([float(field[2]), float(field[3]), float(field[4])]), np.array(
@@ -146,20 +132,15 @@ class Animator:
                 self.finished_patches = True
             self.patch_file.readline()  # get out of the way of the first line of non-data
             self.next_hit_time = float(self.patch_file.readline())
-        if self.next_hit_time <= f * self.time_between_frames:  # <= as there could be two 0 iteration lines @ the start
-            hit_line = self.patch_file.readline()
-            hit_line = hit_line.strip()
-            hit_list = np.asarray(hit_line.split(","))
-            # self.patch_hit_list = np.zeros(np.shape(hit_list))  # todo don't need this line? is defined in __init__
-            # todo faster way of doing this than the method below!
-            for i in range(np.shape(hit_list)[0]):
-                self.patch_hit_list[i] = float(hit_list[i])
+        if self.next_hit_time <= f * self.time_between_frames:  # if animation time is past the next collision time
+            self.patch_hit_list[int(self.patch_file.readline())] += 1  # +1 to number of collisions for this patch
             try:
                 self.next_hit_time = float(self.patch_file.readline())
             except ValueError:
                 self.finished_patches = True
 
-    def animate(self, total_frames):
+    def animate(self):
+        refresh_rate = conds["refresh_rate"]
         pg.init()
 
         display = (int(1280 * 3 / 4), int(1024 * 3 / 4))  # 1280 x 1024
@@ -194,7 +175,7 @@ class Animator:
         up = False
         down = False
         # pause = False
-        for f in range(total_frames):
+        for f in range(conds["total_store"]-1):
             # while pause:
             #     for event in pg.event.get():
             #         if event.type == pg.QUIT:
@@ -249,8 +230,7 @@ class Animator:
                     camera_pos = camera_radius * normalise(camera_pos)
 
             # camera rotation rate modifiers shift and ctrl
-            # rotate_amount_per_frame = (2 / 1000) * 2 * np.pi  # 60Hz
-            rotate_amount_per_frame = (1 / 1000) * 2 * np.pi  # 144Hz
+            rotate_amount_per_frame = refresh_rate * 1e-5 * 2 * np.pi
             if pg.key.get_mods() & pg.KMOD_SHIFT:
                 rotate_amount_per_frame *= 2
             elif pg.key.get_mods() & pg.KMOD_CTRL:
@@ -303,22 +283,21 @@ class Animator:
                 self.update_patch_hit_list(f)
                 j = 0
                 transformation_matrix = find_rotation_matrix(particle_x, particle_z).T.dot(self.radius)
-                mat_hit_list = np.amax(self.patch_hit_list)
+                max_hit_list = np.amax(self.patch_hit_list)
                 for patch in self.patch_points:
-                    if mat_hit_list == self.patch_hit_list[j]:
+                    if max_hit_list == self.patch_hit_list[j]:
                         rgba = [0, 1, 1, 0.8]
                     elif self.patch_hit_list[j] == 0:
                         rgba = [0.1, 0.1, 0.1, 0.8]
                     else:
-                        rgba = [1, 0, self.patch_hit_list[j] / max(1, mat_hit_list), 0.8]
+                        rgba = [1, 0, self.patch_hit_list[j] / max(1, max_hit_list), 0.8]
                     self.draw_part_patch(pos + transformation_matrix.dot(patch), rgba)
                     j += 1
             # container front
             self.draw_container(container_height, contact, "front")
 
             pg.display.flip()  # updates the screen with the new frame
-            # pg.time.wait(int((1000 / 60) - (pg.time.get_ticks() - elapsed_time)))  # 60Hz
-            pg.time.wait(int((1000 / 144) - (pg.time.get_ticks() - elapsed_time)))  # 144Hz
+            pg.time.wait(int((1000 / refresh_rate) - (pg.time.get_ticks() - elapsed_time)))
 
     def draw_particle_lump(self, pos, one_or_two, rgba):
         glPushMatrix()  # saves current matrix
