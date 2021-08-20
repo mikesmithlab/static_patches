@@ -65,7 +65,7 @@ def plot_patches(n):  # produces a plot of cumulative hits over time for every p
     fig_p = plt.figure()
     man_p = plt.get_current_fig_manager()
     # man_p.window.setGeometry(475, 175, 850, 545)
-    plt.plot(hit_time_list, patch_hit_list)  # todo doesn't include start (all 0 patch_hit_list)
+    plt.plot(hit_time_list, patch_hit_list, hit_time_list, np.sum(patch_hit_list, axis=1) / n)  # add average plot
     # plt.plot(hit_time_list, np.log(patch_hit_list), hit_time_list, np.log(np.sum(patch_hit_list, axis=1)))
     plt.show()
 

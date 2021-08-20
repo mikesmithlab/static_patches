@@ -7,7 +7,7 @@ from main import find_magnitude, rotate, normalise, find_rotation_matrix, my_cro
 
 class Container:
     """
-    manages container properties and dynamics
+    Manages container properties and dynamics
     """
 
     def __init__(self, container_amplitude, container_omega, container_time_end):
@@ -29,13 +29,11 @@ class Container:
 
 class ParticlePatches:
     """
-    manages particle patches
+    Finds which patch a collision happens in and stores the patch number with the time
     """
 
     def __init__(self, n):
-        # n = conds["number_of_patches"]
-        points = sphere_points_maker(n)  # todo put straight into KDTree? after debugging it lol
-        self.tree = KDTree(points)  # points should have dimensions (n, 3)
+        self.tree = KDTree(sphere_points_maker(n))  # input to KDTree for 3D should have dimensions (n, 3)
 
         self.patches_file = open("patches", "w")
         first_line = "Format: alternating lines, first is iteration number of collision, second is patch index of hit"
@@ -52,7 +50,7 @@ class ParticlePatches:
 
 class Particle:
     """
-    manages particle properties and forces
+    Manages particle properties, distances, forces, and integration
     """
 
     def __init__(self, conds, step, g):
@@ -76,13 +74,13 @@ class Particle:
         self.gravity_force = np.array([0, 0, g]).dot(self.mass)
 
         self.overlap, self.overlap_speed = 0, 0
-        self.contact = False
+        self.contact = False  # todo the only thing contact is used for is graphics. Semi-redundant: patches tracks hits
         self.is_new_collision = True
 
-    def update(self, t, do_patches):
+    def update(self, t, do_patches):  # returns force and torque, also updates distances and patches
         # distances
-        container_height = self.c.container_height(t)  # todo do this with container_radius as well? check speed.
-        self.find_overlap(container_height)
+        relative_pos = self.pos - np.array([0, 0, self.c.container_height(t)])
+        self.find_overlap(relative_pos)
         if self.overlap >= 0:
             self.contact = False
             self.is_new_collision = True
@@ -91,26 +89,27 @@ class Particle:
         # patches
         # todo do container patches as well
         if do_patches and self.is_new_collision:
-            self.p_p.patch_tracker(
-                t, self.pos - np.array([0, 0, container_height]), self.particle_x, self.particle_z)
+            self.p_p.patch_tracker(t, relative_pos, self.particle_x, self.particle_z)
             self.is_new_collision = False
             # make sure the next calls don't update the patches unless it is a new collision
             # todo this biases the first patch touched (bias direction -avg_angular_velocity)
         # forces
-        normal_force, normal = self.find_normal_force(container_height, t)
+        normal_force, normal = self.find_normal_force(relative_pos, t)
         tangent_force = self.find_tangent_force(normal_force, normal)
         return self.gravity_force + normal_force + tangent_force, -my_cross(normal.dot(self.radius), tangent_force)
+        # todo why - on torque?
 
-    def find_overlap(self, container_height):
-        self.overlap = self.radii_difference - find_magnitude(self.pos - np.array([0, 0, container_height]))
+    def find_overlap(self, relative_pos):  # finds the distance that the particle is inside the container wall
+        self.overlap = self.radii_difference - find_magnitude(relative_pos)
+        # todo should this be a function or just a line in p.update?
 
-    def find_normal_force(self, container_height, t):
-        normal = normalise(self.pos - np.array([0, 0, container_height]))
+    def find_normal_force(self, relative_pos, t):  # returns the normal force (and direction) using spring force
+        normal = normalise(relative_pos)
         self.overlap_speed = self.velocity - np.array([0, 0, self.c.container_speed(t)])
         return normal.dot(self.spring_constant * self.overlap - self.damping * normal.dot(self.overlap_speed)), normal
 
-    def find_tangent_force(self, normal_contact_force, normal):
-        surface_relative_velocity = self.overlap_speed - my_cross(self.omega.dot(self.radius), normal)
+    def find_tangent_force(self, normal_contact_force, normal):  # returns the tangent force caused by friction
+        surface_relative_velocity = self.overlap_speed - my_cross(self.omega.dot(self.radius), normal)  # todo cause of -?????????
         tangent_surface_relative_velocity = surface_relative_velocity - normal.dot(surface_relative_velocity) * normal
         xi_dot = find_magnitude(tangent_surface_relative_velocity)
         if xi_dot == 0:  # precisely zero magnitude tangential surface relative velocity causes divide by 0 error
@@ -118,14 +117,14 @@ class Particle:
         tangent_direction = tangent_surface_relative_velocity.dot(1 / xi_dot)
         return tangent_direction.dot(-min(self.gamma_t * xi_dot, self.mu * find_magnitude(normal_contact_force)))
 
-    def find_energy(self):
+    def find_energy(self):  # returns the energy of the particle
         return (-self.gravity_force.dot(self.pos) +
                 0.5 * self.mass * self.velocity.dot(self.velocity) +
                 0.5 * self.spring_constant * self.overlap ** 2 +
                 0.5 * self.moment_of_inertia * self.omega.dot(self.omega))
-        # todo check the angular energy here  - in fact check all of it
+        # todo check the angular energy here - in fact check all of it
 
-    def integrate(self, t, step):
+    def integrate(self, t, step):  # performs integration on the particle to find new pos and vel at advanced time
         force, torque = self.update(t, True)
         self.velocity = self.velocity + force.dot(self.force_multiplier)
         self.omega = self.omega + torque.dot(self.torque_multiplier)
@@ -139,7 +138,9 @@ class Particle:
 
 
 class Engine:
-    """integrates and stores"""
+    """
+    Runs the physics loop and stores the results in the data_dump file
+    """
 
     def __init__(self, conds):
         self.g = conds["g"]
@@ -161,30 +162,24 @@ class Engine:
 
         self.total_store = 0
 
-    def store(self, j, t):
-        lump_one = self.p.particle_x
-        lump_two = self.p.particle_z
-        part_pos = self.p.pos
-        # todo these^ might not be any faster, in fact slower??????? test it
+    def store(self, j, t):  # stores anything that needs storing this step in the data_dump file
         data = (
-            f"\n{j},{t},{part_pos[0]:.5g},{part_pos[1]:.5g},{part_pos[2]:.5g},"
-            f"{lump_one[0]:.5g},{lump_one[1]:.5g},{lump_one[2]:.5g},"
-            f"{lump_two[0]:.5g},{lump_two[1]:.5g},{lump_two[2]:.5g},"
+            f"\n{j},{t},{self.p.pos[0]:.5g},{self.p.pos[1]:.5g},{self.p.pos[2]:.5g},"
+            f"{self.p.particle_x[0]:.5g},{self.p.particle_x[1]:.5g},{self.p.particle_x[2]:.5g},"
+            f"{self.p.particle_z[0]:.5g},{self.p.particle_z[1]:.5g},{self.p.particle_z[2]:.5g},"
             f"{self.p.c.container_height(t):.5g},{self.p.find_energy()},{self.p.contact}"
         )
         self.data_file.writelines(data)
         self.total_store += 1
 
-    def run(self):
-        for i in tqdm(range(self.total_steps)):
+    def run(self):  # runs the physics loop then cleans up after itself
+        for i in tqdm(range(self.total_steps)):  # tqdm gives a progress bar
             time = i * self.time_step
-            # store if this is a store step
             if i % self.store_interval == 0:
-                self.store(i, time)
-            # step forwards by integration
-            self.p.integrate(time, self.time_step)
+                self.store(i, time)  # store if this is a store step
+            self.p.integrate(time, self.time_step)  # step forwards by numerical integration
         self.close()
 
-    def close(self):
+    def close(self):  # ensures files are closed when they need to be
         self.data_file.close()
         self.p.p_p.close()
