@@ -151,14 +151,12 @@ class Engine:
         self.p = Particle(self.time_step, self.g)
 
         self.data_file = open("data_dump", "w")
-        defaults = open("conds.txt", "r")
+        defaults = open("conds.txt", "r")  # todo small problem: if conds has the wrong format, get_conds ignores it
         self.data_file.writelines(defaults.read())
         defaults.close()
         info_line = (
-                "iteration," + "time," + "pos_x," + "pos_y," + "pos_z," +
-                "particle_x_axis_x," + "particle_x_axis_y," + "particle_x_axis_z," +
-                "particle_z_axis_x," + "particle_z_axis_y," + "particle_z_axis_z," +
-                "container_pos," + "energy," + "contact"
+                "\niteration,time,pos_x,pos_y,pos_z,particle_x_axis_x,particle_x_axis_y,particle_x_axis_z,"
+                "particle_z_axis_x,particle_z_axis_y,particle_z_axis_z,container_pos,energy,contact"
         )
         self.data_file.writelines(info_line)
 
@@ -186,6 +184,7 @@ class Engine:
                 self.store(i, time)
             # step forwards by integration
             self.p.integrate(time, self.time_step)
+        self.close()
 
     def close(self):
         self.data_file.close()

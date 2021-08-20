@@ -17,71 +17,59 @@ def find_truth(o, n):  # old, new positions
     # todo this logic can be done better?
 
 
-def plot_energy(do_i_need_to_show):
+def plot_energy(do_i_need_to_show):  # produces a plot of energy over time as from the data_dump file
     time_list = np.linspace(0, conds["time_end"], num=conds["total_store"])
+    energy_list = np.zeros(np.shape(time_list))
     try:
         data_file = open("data_dump", "r")
     except FileNotFoundError:
-        print("You deleted the data_dump file or didn't make it with Engine")
-        raise FileNotFoundError
+        raise FileNotFoundError("You deleted the data_dump file or didn't make it with Engine")
 
-    energy_list = np.zeros(np.shape(time_list))
-
-    i = -3
+    i = -3  # set to -3 to get out of the way of the first few lines of non-data
     for line in data_file:
-        if i >= 0:  # get out of the way of the first few lines of non-data
-            field = line.strip().split(",")
-            energy_list[i] = float(field[12])
+        if i >= 0:
+            energy_list[i] = float(line.strip().split(",")[12])  # read energy from this line and store it
         i += 1
     data_file.close()
 
     fig_e = plt.figure()
-    mngr_e = plt.get_current_fig_manager()
-    # mngr_e.window.setGeometry(475, 175, 850, 545)
+    man_e = plt.get_current_fig_manager()
+    # man_e.window.setGeometry(475, 175, 850, 545)
     plt.plot(time_list, energy_list)
     if do_i_need_to_show:
         return
     plt.show()
 
 
-def plot_patches():
+def plot_patches():  # produces a plot of cumulative hits over time for every patch
     try:
         patch_file = open("patches", "r")
     except FileNotFoundError:
-        print("You deleted the patches file or didn't make it with ParticlePatches")
-        raise FileNotFoundError
-
+        raise FileNotFoundError("You deleted the patches file or didn't make it with ParticlePatches")
     plot_length = int((len(patch_file.readlines()) - 1) / 2)  # todo check this is the right number
     hit_time_list = np.zeros(plot_length)
     patch_hit_list = np.zeros([plot_length, 200])  # todo 200 here should be n from the initial conditions dictionary
-
     patch_file = open("patches", "r")
 
-    i = -1
+    i = -1  # set to -1 to get out of the way of the first few line of non-data
     for line in patch_file:
         if i >= 0:
             if i % 2 == 0:
                 hit_time_list[int(i / 2)] = float(line)  # store the time of this collision
             else:
                 j = int((i - 1) / 2)
-                if i >= 2:
+                # if i >= 2:  # if the previous patch_hit_list exists (j - 1 >= 0)
+                if j >= 1:  # if the previous patch_hit_list exists (i >= 2)
                     patch_hit_list[j, :] = patch_hit_list[j - 1, :]  # cumulative
                 patch_hit_list[j, int(line)] += 1  # add one to the number of collisions this patch has
         i += 1
     patch_file.close()
 
     fig_p = plt.figure()
-    mngr_p = plt.get_current_fig_manager()
-    # mngr_p.window.setGeometry(475, 175, 850, 545)
-    plt.plot(hit_time_list, patch_hit_list)
+    man_p = plt.get_current_fig_manager()
+    # man_p.window.setGeometry(475, 175, 850, 545)
+    plt.plot(hit_time_list, patch_hit_list)  # todo doesn't include start (all 0 patch_hit_list)
     plt.show()
-
-    # fig_e = plt.figure()
-    # mngr_e = plt.get_current_fig_manager()
-    # mngr_e.window.setGeometry(475, 175, 850, 545)
-    # plt.plot(time_list, energy_list, time_list, theta_dot_list)
-    # plt.figure()
-    # plt.plot(time_list, pos_list[1, :], time_list, pos_list[0, :], time_list, container_pos_list)
 
 
 class Animator:
@@ -106,7 +94,10 @@ class Animator:
 
     def update_positions(self, f):  # input f is the frame number
         if f == 0:
-            self.data_file = open("data_dump", "r")
+            try:
+                self.data_file = open("data_dump", "r")
+            except FileNotFoundError:
+                raise FileNotFoundError("You deleted the data_dump file or didn't make it with Engine")
             for n in range(3):
                 self.data_file.readline()  # get out of the way of the first few lines of non-data
         field = self.data_file.readline().strip().split(",")
