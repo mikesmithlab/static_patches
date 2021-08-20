@@ -80,7 +80,8 @@ class Particle:
     def update(self, t, do_patches):  # returns force and torque, also updates distances and patches
         # distances
         relative_pos = self.pos - np.array([0, 0, self.c.container_height(t)])
-        self.find_overlap(relative_pos)
+        # overlap is the distance that the particle is inside the container wall
+        self.overlap = self.radii_difference - find_magnitude(relative_pos)
         if self.overlap >= 0:
             self.contact = False
             self.is_new_collision = True
@@ -90,6 +91,7 @@ class Particle:
         # todo do container patches as well
         if do_patches and self.is_new_collision:
             self.p_p.patch_tracker(t, relative_pos, self.particle_x, self.particle_z)
+            # self.c.c_p.patch_tracker(t, relative_pos, self.particle_x, self.particle_z)
             self.is_new_collision = False
             # make sure the next calls don't update the patches unless it is a new collision
             # todo this biases the first patch touched (bias direction -avg_angular_velocity)
@@ -98,10 +100,6 @@ class Particle:
         tangent_force = self.find_tangent_force(normal_force, normal)
         return self.gravity_force + normal_force + tangent_force, my_cross(normal.dot(self.radius), tangent_force)
 
-    def find_overlap(self, relative_pos):  # finds the distance that the particle is inside the container wall
-        self.overlap = self.radii_difference - find_magnitude(relative_pos)
-        # todo should this be a function or just a line in p.update?
-
     def find_normal_force(self, relative_pos, t):  # returns the normal force (and direction) using spring force
         normal = normalise(relative_pos)
         self.overlap_speed = self.velocity - np.array([0, 0, self.c.container_speed(t)])
@@ -109,11 +107,11 @@ class Particle:
 
     def find_tangent_force(self, normal_contact_force, normal):  # returns the tangent force caused by friction
         surface_relative_velocity = self.overlap_speed - my_cross(normal, self.omega.dot(self.radius))
-        tangent_surface_relative_velocity = surface_relative_velocity - normal.dot(surface_relative_velocity) * normal
-        xi_dot = find_magnitude(tangent_surface_relative_velocity)
+        tangent_relative_velocity = surface_relative_velocity - normal.dot(normal.dot(surface_relative_velocity))
+        xi_dot = find_magnitude(tangent_relative_velocity)
         if xi_dot == 0:  # precisely zero magnitude tangential surface relative velocity causes divide by 0 error
             return np.array([0, 0, 0])
-        tangent_direction = tangent_surface_relative_velocity.dot(1 / xi_dot)
+        tangent_direction = tangent_relative_velocity.dot(1 / xi_dot)
         return tangent_direction.dot(-min(self.gamma_t * xi_dot, self.mu * find_magnitude(normal_contact_force)))
 
     def find_energy(self):  # returns the energy of the particle
@@ -123,7 +121,7 @@ class Particle:
                 0.5 * self.moment_of_inertia * self.omega.dot(self.omega))
         # todo check the angular energy here - in fact check all of it
 
-    def integrate(self, t, step):  # performs integration on the particle to find new pos and vel at advanced time
+    def integrate(self, t, step):  # performs integration to find new pos and vel at advanced time for the particle
         force, torque = self.update(t, True)
         self.velocity = self.velocity + force.dot(self.force_multiplier)
         self.omega = self.omega + torque.dot(self.torque_multiplier)
