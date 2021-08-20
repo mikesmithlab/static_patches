@@ -96,8 +96,7 @@ class Particle:
         # forces
         normal_force, normal = self.find_normal_force(relative_pos, t)
         tangent_force = self.find_tangent_force(normal_force, normal)
-        return self.gravity_force + normal_force + tangent_force, -my_cross(normal.dot(self.radius), tangent_force)
-        # todo why - on torque?
+        return self.gravity_force + normal_force + tangent_force, my_cross(normal.dot(self.radius), tangent_force)
 
     def find_overlap(self, relative_pos):  # finds the distance that the particle is inside the container wall
         self.overlap = self.radii_difference - find_magnitude(relative_pos)
@@ -109,7 +108,7 @@ class Particle:
         return normal.dot(self.spring_constant * self.overlap - self.damping * normal.dot(self.overlap_speed)), normal
 
     def find_tangent_force(self, normal_contact_force, normal):  # returns the tangent force caused by friction
-        surface_relative_velocity = self.overlap_speed - my_cross(self.omega.dot(self.radius), normal)  # todo cause of -?????????
+        surface_relative_velocity = self.overlap_speed - my_cross(normal, self.omega.dot(self.radius))
         tangent_surface_relative_velocity = surface_relative_velocity - normal.dot(surface_relative_velocity) * normal
         xi_dot = find_magnitude(tangent_surface_relative_velocity)
         if xi_dot == 0:  # precisely zero magnitude tangential surface relative velocity causes divide by 0 error
@@ -129,7 +128,7 @@ class Particle:
         self.velocity = self.velocity + force.dot(self.force_multiplier)
         self.omega = self.omega + torque.dot(self.torque_multiplier)
         self.pos = self.pos + self.velocity.dot(step)
-        angles = self.omega.dot(-step)  # todo negative here? why?
+        angles = self.omega.dot(step)
         self.particle_x = normalise(rotate(angles, self.particle_x))
         self.particle_z = normalise(rotate(angles, self.particle_z))
         force, torque = self.update(t, False)

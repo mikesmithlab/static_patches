@@ -92,15 +92,15 @@ if __name__ == '__main__':
     else:
         print("kept previous physics - data_dump is unchanged")
 
-    do_animate = False
-    # do_animate = True
+    # do_animate = False
+    do_animate = True
     if do_animate:
         print("animating....")
         from reader import Animator
         Animator(conds).animate()
 
-    # do_analysis = False
-    do_analysis = True
+    do_analysis = False
+    # do_analysis = True
     if do_analysis:
         print("analysing....")
         # do_energy_analysis = False
