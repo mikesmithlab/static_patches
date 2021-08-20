@@ -21,7 +21,7 @@ def get_conditions(filename=None):
         'time_end': 6,
         'container_time_end': 5.8,
         'time_warp': 2 / 20,
-        'refresh_rate': 144,
+        'refresh_rate': 60,
     }
 
     # ---------------------------------------
