@@ -78,13 +78,16 @@ def my_cross(v1, v2):  # returns cross product of v1 and v2 (for some reason thi
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
+    from conditions import get_conditions
+    conds = get_conditions(filename="conds.txt")
+
     # todo better way of choosing what to do please? True False commenting out is strange
     do_physics = False
     # do_physics = True
     if do_physics:
         print("doing physics...")
         from objects import Engine
-        Engine().run()
+        Engine(conds).run()
         print("physics is done - data_dump has been written to")
     else:
         print("kept previous physics - data_dump is unchanged")
@@ -106,7 +109,7 @@ if __name__ == '__main__':
         do_patch_analysis = True
         if do_energy_analysis:
             from reader import plot_energy
-            plot_energy(do_patch_analysis)
+            plot_energy(do_patch_analysis, conds["time_end"], conds["total_store"])
         if do_patch_analysis:
             from reader import plot_patches
             plot_patches()

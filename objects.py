@@ -3,8 +3,6 @@ from scipy.spatial import KDTree
 from tqdm import tqdm
 
 from main import find_magnitude, rotate, normalise, find_rotation_matrix, my_cross, sphere_points_maker
-from conditions import get_conditions
-conds = get_conditions(filename="conds.txt")
 
 
 class Container:
@@ -12,11 +10,10 @@ class Container:
     manages container properties and dynamics
     """
 
-    def __init__(self):
-        self.container_radius = conds["container_radius"]
-        self.container_amplitude = conds["container_amplitude"]
-        self.container_omega = conds["container_omega"]
-        self.container_time_end = conds["container_time_end"]
+    def __init__(self, container_amplitude, container_omega, container_time_end):
+        self.container_amplitude = container_amplitude
+        self.container_omega = container_omega
+        self.container_time_end = container_time_end
         self.container_amplitude_by_omega = self.container_amplitude * self.container_omega
 
     def container_height(self, t):  # gives the height of the floor at time t with amplitude a and frequency k
@@ -35,8 +32,8 @@ class ParticlePatches:
     manages particle patches
     """
 
-    def __init__(self):
-        n = conds["number_of_patches"]
+    def __init__(self, n):
+        # n = conds["number_of_patches"]
         points = sphere_points_maker(n)  # todo put straight into KDTree? after debugging it lol
         self.tree = KDTree(points)  # points should have dimensions (n, 3)
 
@@ -58,9 +55,9 @@ class Particle:
     manages particle properties and forces
     """
 
-    def __init__(self, step, g):
-        self.p_p = ParticlePatches()
-        self.c = Container()
+    def __init__(self, conds, step, g):
+        self.p_p = ParticlePatches(conds["number_of_patches"])
+        self.c = Container(conds["container_amplitude"], conds["container_omega"], conds["container_time_end"])
 
         self.radius, self.density = conds["radius"], conds["density"]
         self.mass, self.moment_of_inertia = conds["mass"], conds["moment_of_inertia"]
@@ -72,10 +69,10 @@ class Particle:
         self.particle_z = normalise(my_cross(np.array([0, 0, 1]), self.particle_x))
         self.omega = conds["omega"]
         self.mu, self.gamma_t = conds["mu"], conds["gamma_t"]
+        self.radii_difference = conds["container_radius"] - self.radius
+
         self.force_multiplier = step / (2 * self.mass)
         self.torque_multiplier = step / (2 * self.moment_of_inertia)
-
-        self.radii_difference = self.c.container_radius - self.radius
         self.gravity_force = np.array([0, 0, g]).dot(self.mass)
 
         self.overlap, self.overlap_speed = 0, 0
@@ -144,11 +141,13 @@ class Particle:
 class Engine:
     """integrates and stores"""
 
-    def __init__(self):
+    def __init__(self, conds):
         self.g = conds["g"]
-        self.time_end, self.time_step = conds["time_end"], conds["time_step"]
+        self.time_end = conds["time_end"]
+        self.time_step = conds["time_step"]
+        self.total_steps = conds["total_steps"]
         self.store_interval = conds["store_interval"]
-        self.p = Particle(self.time_step, self.g)
+        self.p = Particle(conds, self.time_step, self.g)
 
         self.data_file = open("data_dump", "w")
         defaults = open("conds.txt", "r")  # todo small problem: if conds has the wrong format, get_conds ignores it
@@ -166,7 +165,7 @@ class Engine:
         lump_one = self.p.particle_x
         lump_two = self.p.particle_z
         part_pos = self.p.pos
-        # todo these^ might not be any faster
+        # todo these^ might not be any faster, in fact slower??????? test it
         data = (
             f"\n{j},{t},{part_pos[0]:.5g},{part_pos[1]:.5g},{part_pos[2]:.5g},"
             f"{lump_one[0]:.5g},{lump_one[1]:.5g},{lump_one[2]:.5g},"
@@ -177,7 +176,7 @@ class Engine:
         self.total_store += 1
 
     def run(self):
-        for i in tqdm(range(conds["total_steps"])):
+        for i in tqdm(range(self.total_steps)):
             time = i * self.time_step
             # store if this is a store step
             if i % self.store_interval == 0:
