@@ -6,8 +6,6 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 
 from main import rotate, normalise, sphere_points_maker, find_rotation_matrix, my_cross
-from conditions import get_conditions
-conds = get_conditions(filename="conds.txt")
 
 
 def find_truth(o, n):  # old, new positions
@@ -17,98 +15,96 @@ def find_truth(o, n):  # old, new positions
     # todo this logic can be done better?
 
 
-def plot_energy(do_i_need_to_show):
-    time_list = np.linspace(0, conds["time_end"], num=conds["total_store"])
+def plot_energy(showing, time_end, total_store):  # produces a plot of energy over time as from the data_dump file
+    time_list = np.linspace(0, time_end, num=total_store)
+    energy_list = np.zeros(np.shape(time_list))
     try:
         data_file = open("data_dump", "r")
     except FileNotFoundError:
-        print("You deleted the data_dump file or didn't make it with Engine")
-        raise FileNotFoundError
+        raise FileNotFoundError("You deleted the data_dump file or didn't make it with Engine")
 
-    energy_list = np.zeros(np.shape(time_list))
-
-    i = -3
+    i = -3  # set to -3 to get out of the way of the first few lines of non-data
     for line in data_file:
-        if i >= 0:  # get out of the way of the first few lines of non-data
-            field = line.strip().split(",")
-            energy_list[i] = float(field[12])
+        if i >= 0:
+            energy_list[i] = float(line.strip().split(",")[12])  # read energy from this line and store it
         i += 1
     data_file.close()
 
     fig_e = plt.figure()
-    mngr_e = plt.get_current_fig_manager()
-    # mngr_e.window.setGeometry(475, 175, 850, 545)
+    man_e = plt.get_current_fig_manager()
+    # man_e.window.setGeometry(475, 175, 850, 545)
     plt.plot(time_list, energy_list)
-    if do_i_need_to_show:
+    if showing:
         return
     plt.show()
 
 
-def plot_patches():
+def plot_patches(n):  # produces a plot of cumulative hits over time for every patch
     try:
         patch_file = open("patches", "r")
     except FileNotFoundError:
-        print("You deleted the patches file or didn't make it with ParticlePatches")
-        raise FileNotFoundError
-
-    plot_length = int((len(patch_file.readlines()) - 1) / 2)  # todo check this is the right number
+        raise FileNotFoundError("You deleted the patches file or didn't make it with ParticlePatches")
+    plot_length = int(1 + (len(patch_file.readlines()) - 1) / 2)  # todo check this is the right number
     hit_time_list = np.zeros(plot_length)
-    patch_hit_list = np.zeros([plot_length, 200])  # todo 200 here should be n from the initial conditions dictionary
-
+    patch_hit_list = np.zeros([plot_length, n])
     patch_file = open("patches", "r")
 
-    i = -1
+    i = -1  # set to -1 to get out of the way of the first few line of non-data
     for line in patch_file:
         if i >= 0:
             if i % 2 == 0:
-                hit_time_list[int(i / 2)] = float(line)  # store the time of this collision
+                hit_time_list[int(1 + i / 2)] = float(line)  # store the time of this collision
             else:
-                j = int((i - 1) / 2)
-                if i >= 2:
-                    patch_hit_list[j, :] = patch_hit_list[j - 1, :]  # cumulative
+                j = int(1 + (i - 1) / 2)
+                # if j >= 1:  # if the previous patch_hit_list exists (i >= 2)  # todo not needed when we have a 0
+                patch_hit_list[j, :] = patch_hit_list[j - 1, :]  # cumulative
                 patch_hit_list[j, int(line)] += 1  # add one to the number of collisions this patch has
         i += 1
     patch_file.close()
 
     fig_p = plt.figure()
-    mngr_p = plt.get_current_fig_manager()
-    # mngr_p.window.setGeometry(475, 175, 850, 545)
-    plt.plot(hit_time_list, patch_hit_list)
+    man_p = plt.get_current_fig_manager()
+    # man_p.window.setGeometry(475, 175, 850, 545)
+    plt.plot(hit_time_list, patch_hit_list, hit_time_list, np.sum(patch_hit_list, axis=1) / n)  # add average plot
+    # plt.plot(hit_time_list, np.log(patch_hit_list), hit_time_list, np.log(np.sum(patch_hit_list, axis=1)))
     plt.show()
-
-    # fig_e = plt.figure()
-    # mngr_e = plt.get_current_fig_manager()
-    # mngr_e.window.setGeometry(475, 175, 850, 545)
-    # plt.plot(time_list, energy_list, time_list, theta_dot_list)
-    # plt.figure()
-    # plt.plot(time_list, pos_list[1, :], time_list, pos_list[0, :], time_list, container_pos_list)
 
 
 class Animator:
     """
-    reads from data_dump produced by Engine then animates the system
+    Reads from the data_dump file produced by Engine and animates the system
     """
 
-    def __init__(self):
-        self.container_radius, self.radius = conds["container_radius"], conds["radius"]
+    def __init__(self, conds):
+        self.container_radius = conds["container_radius"]
+        self.radius = conds["radius"]
         self.small_radius = self.radius / 16
-        self.time_between_frames = conds["store_interval"] * conds["time_step"]
         n = conds["number_of_patches"]
+        self.total_store = conds["total_store"]
+        self.time_between_frames = conds["store_interval"] * conds["time_step"]
+        self.refresh_rate = conds["refresh_rate"]
 
-        self.data_file = open("data_dump", "r")
-        self.patch_file = open("patches", "r")
+        try:
+            self.data_file = open("data_dump", "r")
+        except FileNotFoundError:
+            raise FileNotFoundError("You deleted the data_dump file or didn't make it with Engine. Animation stopped.")
+        try:
+            self.patch_file = open("patches", "r")
+            self.finished_patches = False
+        except FileNotFoundError:
+            print("You deleted the patches file or didn't make it with ParticlePatches. Patches won't have colours")
+            self.finished_patches = True
 
         self.sphere_quadric = gluNewQuadric()
         self.patch_hit_list = np.zeros([n, 1])
         self.next_hit_time = 0
-        self.finished_patches = False
         self.patch_points = sphere_points_maker(n)
 
-    def update_positions(self, f):  # input f is the frame number
+    def update_positions(self, f):  # returns animation data from line f of data_dump
         if f == 0:
             self.data_file = open("data_dump", "r")
-            for n in range(3):
-                self.data_file.readline()  # get out of the way of the first few lines of non-data
+            for n in range(3):  # get out of the way of the first few lines of non-data
+                self.data_file.readline()
         field = self.data_file.readline().strip().split(",")
         time_two_dp = "{:.2f}".format(float(field[1]))
         pg.display.set_caption(f"pyopengl shaker, time = {time_two_dp}s")
@@ -116,8 +112,8 @@ class Animator:
             [float(field[5]), float(field[6]), float(field[7])]), np.array(
             [float(field[8]), float(field[9]), float(field[10])]), float(field[11]), field[13]
         # pos = [2, 3, 4]
-        # particle_x = [5, 6, 7]
-        # particle_z = [8, 9, 10]
+        # particle_x_axis = [5, 6, 7]
+        # particle_z_axis = [8, 9, 10]
         # container_height = 11
         # contact = 13
 
@@ -125,11 +121,7 @@ class Animator:
         if self.finished_patches:
             return
         if f == 0:
-            try:
-                self.patch_file = open("patches", "r")
-            except FileNotFoundError:
-                print("You deleted the patches file or didn't make it with ParticlePatches. Patches won't have colours")
-                self.finished_patches = True
+            self.patch_file = open("patches", "r")
             self.patch_file.readline()  # get out of the way of the first line of non-data
             self.next_hit_time = float(self.patch_file.readline())
         if self.next_hit_time <= f * self.time_between_frames:  # if animation time is past the next collision time
@@ -140,7 +132,6 @@ class Animator:
                 self.finished_patches = True
 
     def animate(self):
-        refresh_rate = conds["refresh_rate"]
         pg.init()
 
         display = (int(1280 * 3 / 4), int(1024 * 3 / 4))  # 1280 x 1024
@@ -169,13 +160,14 @@ class Animator:
             np.sin(camera_phi) * np.sin(camera_theta),
             np.cos(camera_theta)])
         perspective = 60, (display[0] / display[1]), 0.001 * self.container_radius, 10 * self.container_radius
+        # fov in y, aspect ratio, distance to clipping plane close, distance to clipping plane far
 
         left = False
         right = False
         up = False
         down = False
         # pause = False
-        for f in range(conds["total_store"]-1):
+        for f in range(self.total_store - 1):  # todo why does there need to be a -1 here?
             # while pause:
             #     for event in pg.event.get():
             #         if event.type == pg.QUIT:
@@ -230,7 +222,7 @@ class Animator:
                     camera_pos = camera_radius * normalise(camera_pos)
 
             # camera rotation rate modifiers shift and ctrl
-            rotate_amount_per_frame = refresh_rate * 1e-5 * 2 * np.pi
+            rotate_amount_per_frame = self.refresh_rate * 1e-5 * 2 * np.pi
             if pg.key.get_mods() & pg.KMOD_SHIFT:
                 rotate_amount_per_frame *= 2
             elif pg.key.get_mods() & pg.KMOD_CTRL:
@@ -252,54 +244,56 @@ class Animator:
                     camera_pos = new_camera_pos
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)  # clear the screen
-            glLoadIdentity()  # is_new_collision matrix
+            glLoadIdentity()  # new matrix
             gluPerspective(*perspective)
-            # fov in y, aspect ratio, distance to clipping plane close, distance to clipping plane far
             gluLookAt(*camera_pos, *look_at, *up_vector)
 
-            # draw all objects
+            # update positions from file
             pos, particle_x, particle_z, container_height, contact = self.update_positions(f)
-            # gluLookAt(*camera_pos, *pos, *up_vector)  # makes u feel sick
+            # gluLookAt(*camera_pos, *pos, *up_vector)  # makes you feel sick, focuses on the particle with the camera
+
+            # draw all objects
+
             # container back
             self.draw_container(container_height, contact, "back")
+
             # particle
             self.draw_particle(pos)
-            # lumps and/or patches
-            # lumps = True
-            lumps = False
-            patches = True
-            # patches = False
-            if lumps:
-                lump_offset = particle_x.dot(self.radius)
-                self.draw_particle_lump(pos + lump_offset, 1, [0.9, 0.1, 0.1, 0.8])
-                self.draw_particle_lump(pos - lump_offset, 2, [0.9, 0.1, 0.1, 0.8])
-                lump_offset = particle_z.dot(self.radius)
-                self.draw_particle_lump(pos + lump_offset, 1, [0.9, 0.1, 0.9, 0.8])
-                self.draw_particle_lump(pos - lump_offset, 2, [0.9, 0.1, 0.9, 0.8])
-                lump_offset = normalise(my_cross(particle_x, particle_z)).dot(self.radius)
-                self.draw_particle_lump(pos + lump_offset, 1, [0.9, 0.6, 0.1, 0.8])
-                self.draw_particle_lump(pos - lump_offset, 2, [0.9, 0.6, 0.1, 0.8])
-            if patches:
-                self.update_patch_hit_list(f)
-                j = 0
-                transformation_matrix = find_rotation_matrix(particle_x, particle_z).T.dot(self.radius)
-                max_hit_list = np.amax(self.patch_hit_list)
-                for patch in self.patch_points:
-                    if max_hit_list == self.patch_hit_list[j]:
-                        rgba = [0, 1, 1, 0.8]
-                    elif self.patch_hit_list[j] == 0:
-                        rgba = [0.1, 0.1, 0.1, 0.8]
-                    else:
-                        rgba = [1, 0, self.patch_hit_list[j] / max(1, max_hit_list), 0.8]
-                    self.draw_part_patch(pos + transformation_matrix.dot(patch), rgba)
-                    j += 1
+
+            # lumps?
+            # lump_offset = particle_x.dot(self.radius)
+            # self.draw_particle_lump(pos + lump_offset, 1, [0.9, 0.1, 0.1, 0.8])
+            # self.draw_particle_lump(pos - lump_offset, 2, [0.9, 0.1, 0.1, 0.8])
+            # lump_offset = particle_z.dot(self.radius)
+            # self.draw_particle_lump(pos + lump_offset, 1, [0.9, 0.1, 0.9, 0.8])
+            # self.draw_particle_lump(pos - lump_offset, 2, [0.9, 0.1, 0.9, 0.8])
+            # lump_offset = normalise(my_cross(particle_x, particle_z)).dot(self.radius)
+            # self.draw_particle_lump(pos + lump_offset, 1, [0.9, 0.6, 0.1, 0.8])
+            # self.draw_particle_lump(pos - lump_offset, 2, [0.9, 0.6, 0.1, 0.8])
+
+            # patches
+            self.update_patch_hit_list(f)
+            j = 0
+            transformation_matrix = find_rotation_matrix(particle_x, particle_z).T.dot(self.radius)
+            max_hit_list = np.amax(self.patch_hit_list)
+            for patch in self.patch_points:
+                if max_hit_list == self.patch_hit_list[j]:
+                    rgba = [0, 1, 1, 0.8]
+                elif self.patch_hit_list[j] == 0:
+                    rgba = [0.1, 0.1, 0.1, 0.8]
+                else:
+                    rgba = [1, 0, self.patch_hit_list[j] / max(1, max_hit_list), 0.8]  # avoid a div by 0 using max
+                self.draw_part_patch(pos + transformation_matrix.dot(patch), rgba)
+                j += 1
+
             # container front
             self.draw_container(container_height, contact, "front")
 
-            pg.display.flip()  # updates the screen with the new frame
-            pg.time.wait(int((1000 / refresh_rate) - (pg.time.get_ticks() - elapsed_time)))
+            # update the screen with the new frame then pause for the appropriate time between frames
+            pg.display.flip()
+            pg.time.wait(int((1000 / self.refresh_rate) - (pg.time.get_ticks() - elapsed_time)))
 
-    def draw_particle_lump(self, pos, one_or_two, rgba):
+    def draw_particle_lump(self, pos, one_or_two, rgba):  # draws a lump (designed to be one on the + & - of each axis)
         glPushMatrix()  # saves current matrix
 
         glTranslatef(*pos)
@@ -308,7 +302,7 @@ class Animator:
 
         glPopMatrix()  # restores current matrix
 
-    def draw_part_patch(self, pos, rgba):
+    def draw_part_patch(self, pos, rgba):  # draws the centre of a patch
         glPushMatrix()  # saves current matrix
 
         glTranslatef(*pos)
@@ -317,7 +311,7 @@ class Animator:
 
         glPopMatrix()  # restores current matrix
 
-    def draw_particle(self, pos):
+    def draw_particle(self, pos):  # draws the particle itself
         glPushMatrix()  # saves current matrix
 
         glTranslatef(*pos)
@@ -326,7 +320,7 @@ class Animator:
 
         glPopMatrix()  # restores current matrix
 
-    def draw_container(self, height, contact, front_or_back):
+    def draw_container(self, height, contact, front_or_back):  # draws the container in mesh instead of solid
         glPushMatrix()  # saves current matrix
 
         # colour the container depending on front or back being rendered, and whether or not there is contact
@@ -348,7 +342,7 @@ class Animator:
         glColor4f(*rgba)
         glTranslatef(0, 0, height)
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)  # make this container a mesh
-        gluSphere(self.sphere_quadric, self.container_radius, 32, 16)  # todo slice and stack, 32 & 16?
+        gluSphere(self.sphere_quadric, self.container_radius, 32, 16)
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)  # from meshes back to normal surfaces
 
         glPopMatrix()  # restores current matrix

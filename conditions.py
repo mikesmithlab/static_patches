@@ -21,8 +21,12 @@ def get_conditions(filename=None):
         'time_end': 6,
         'container_time_end': 5.8,
         'time_warp': 2 / 20,
-        'refresh_rate': 144,
+        'refresh_rate': 60,
     }
+
+    # ---------------------------------------
+    # Don't change anything below this point!
+    # ---------------------------------------
 
     if filename is not None:
         try:
@@ -49,10 +53,11 @@ def get_conditions(filename=None):
                     'time_warp': float(field[21]),
                     'refresh_rate': float(field[22]),
                 }
+                print(f"Read properties and initial conditions from {filename}.")
             except ValueError:
-                print(f"Wrong format of given file: {filename}. Ignoring the file: using default conds")
+                print(f"Wrong format of given file: {filename}. Ignoring the file - using default conds.")
         except FileNotFoundError:
-            print(f"Can't find {filename}. Making new with default conds")
+            print(f"Can't find {filename}. Making new with default conds.")
             file = open(filename, "w")
             l1 = (
                 f"g,radius,density,coefficient_of_restitution,mu,gamma_t,container_radius,container_amplitude,"
@@ -72,10 +77,6 @@ def get_conditions(filename=None):
             file.writelines(l1)
             file.writelines(l2)
         file.close()
-
-    # ---------------------------------------
-    # Don't change anything below this point!
-    # ---------------------------------------
 
     # object properties
     conds['mass'] = conds['density'] * (4 / 3) * np.pi * conds['radius'] ** 3

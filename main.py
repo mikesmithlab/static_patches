@@ -15,6 +15,7 @@ import numpy as np
 # instead of v1 + v2 do np.add(v1, v2) or try the v1.add(v2)? check speed
 # todo 0.5? 1? what is the stepping? how exactly does the verlet work
 # todo get_conditions should only be imported to main, then put into other classes as inputs
+# todo tiny tiny bit of randomness in the collision forces (more realistic)? Do this after checking energy
 
 
 def q_conjugate(q):  # return the conjugate of a quaternion
@@ -77,16 +78,16 @@ def my_cross(v1, v2):  # returns cross product of v1 and v2 (for some reason thi
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
+    from conditions import get_conditions
+    conds = get_conditions(filename="conds.txt")
+
     # todo better way of choosing what to do please? True False commenting out is strange
-    print("kept previous initial conditions")  # todo lol
-    # do_physics = False
-    do_physics = True
+    do_physics = False
+    # do_physics = True
     if do_physics:
         print("doing physics...")
         from objects import Engine
-        Eng = Engine()
-        Eng.run()
-        Eng.close()
+        Engine(conds).run()
         print("physics is done - data_dump has been written to")
     else:
         print("kept previous physics - data_dump is unchanged")
@@ -96,7 +97,7 @@ if __name__ == '__main__':
     if do_animate:
         print("animating....")
         from reader import Animator
-        Animator().animate()
+        Animator(conds).animate()
 
     do_analysis = False
     # do_analysis = True
@@ -108,7 +109,7 @@ if __name__ == '__main__':
         do_patch_analysis = True
         if do_energy_analysis:
             from reader import plot_energy
-            plot_energy(do_patch_analysis)
+            plot_energy(do_patch_analysis, conds["time_end"], conds["total_store"])
         if do_patch_analysis:
             from reader import plot_patches
-            plot_patches()
+            plot_patches(conds["number_of_patches"])
