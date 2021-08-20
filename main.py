@@ -97,7 +97,7 @@ if __name__ == '__main__':
     if do_animate:
         print("animating....")
         from reader import Animator
-        Animator().animate()
+        Animator(conds).animate()
 
     # do_analysis = False
     do_analysis = True
@@ -112,4 +112,4 @@ if __name__ == '__main__':
             plot_energy(do_patch_analysis, conds["time_end"], conds["total_store"])
         if do_patch_analysis:
             from reader import plot_patches
-            plot_patches()
+            plot_patches(conds["number_of_patches"])

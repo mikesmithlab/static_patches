@@ -15,7 +15,7 @@ def find_truth(o, n):  # old, new positions
     # todo this logic can be done better?
 
 
-def plot_energy(do_i_need_to_show, time_end, total_store):  # produces a plot of energy over time as from the data_dump file
+def plot_energy(showing, time_end, total_store):  # produces a plot of energy over time as from the data_dump file
     time_list = np.linspace(0, time_end, num=total_store)
     energy_list = np.zeros(np.shape(time_list))
     try:
@@ -34,31 +34,30 @@ def plot_energy(do_i_need_to_show, time_end, total_store):  # produces a plot of
     man_e = plt.get_current_fig_manager()
     # man_e.window.setGeometry(475, 175, 850, 545)
     plt.plot(time_list, energy_list)
-    if do_i_need_to_show:
+    if showing:
         return
     plt.show()
 
 
-def plot_patches():  # produces a plot of cumulative hits over time for every patch
+def plot_patches(n):  # produces a plot of cumulative hits over time for every patch
     try:
         patch_file = open("patches", "r")
     except FileNotFoundError:
         raise FileNotFoundError("You deleted the patches file or didn't make it with ParticlePatches")
-    plot_length = int((len(patch_file.readlines()) - 1) / 2)  # todo check this is the right number
+    plot_length = int(1 + (len(patch_file.readlines()) - 1) / 2)  # todo check this is the right number
     hit_time_list = np.zeros(plot_length)
-    patch_hit_list = np.zeros([plot_length, 200])  # todo 200 here should be n from the initial conditions dictionary
+    patch_hit_list = np.zeros([plot_length, n])
     patch_file = open("patches", "r")
 
     i = -1  # set to -1 to get out of the way of the first few line of non-data
     for line in patch_file:
         if i >= 0:
             if i % 2 == 0:
-                hit_time_list[int(i / 2)] = float(line)  # store the time of this collision
+                hit_time_list[int(1 + i / 2)] = float(line)  # store the time of this collision
             else:
-                j = int((i - 1) / 2)
-                # if i >= 2:  # if the previous patch_hit_list exists (j - 1 >= 0)
-                if j >= 1:  # if the previous patch_hit_list exists (i >= 2)
-                    patch_hit_list[j, :] = patch_hit_list[j - 1, :]  # cumulative
+                j = int(1 + (i - 1) / 2)
+                # if j >= 1:  # if the previous patch_hit_list exists (i >= 2)  # todo not needed when we have a 0
+                patch_hit_list[j, :] = patch_hit_list[j - 1, :]  # cumulative
                 patch_hit_list[j, int(line)] += 1  # add one to the number of collisions this patch has
         i += 1
     patch_file.close()
@@ -67,35 +66,43 @@ def plot_patches():  # produces a plot of cumulative hits over time for every pa
     man_p = plt.get_current_fig_manager()
     # man_p.window.setGeometry(475, 175, 850, 545)
     plt.plot(hit_time_list, patch_hit_list)  # todo doesn't include start (all 0 patch_hit_list)
+    # plt.plot(hit_time_list, np.log(patch_hit_list), hit_time_list, np.log(np.sum(patch_hit_list, axis=1)))
     plt.show()
 
 
 class Animator:
     """
-    reads from data_dump produced by Engine then animates the system
+    reads from the data_dump file produced by Engine and animates the system
     """
 
-    def __init__(self):
-        self.container_radius, self.radius = conds["container_radius"], conds["radius"]
+    def __init__(self, conds):
+        self.container_radius = conds["container_radius"]
+        self.radius = conds["radius"]
         self.small_radius = self.radius / 16
-        self.time_between_frames = conds["store_interval"] * conds["time_step"]
         n = conds["number_of_patches"]
+        self.total_store = conds["total_store"]
+        self.time_between_frames = conds["store_interval"] * conds["time_step"]
+        self.refresh_rate = conds["refresh_rate"]
 
-        self.data_file = open("data_dump", "r")
-        self.patch_file = open("patches", "r")
+        try:
+            self.data_file = open("data_dump", "r")
+        except FileNotFoundError:
+            raise FileNotFoundError("You deleted the data_dump file or didn't make it with Engine")
+        try:
+            self.patch_file = open("patches", "r")
+            self.finished_patches = False
+        except FileNotFoundError:
+            print("You deleted the patches file or didn't make it with ParticlePatches. Patches won't have colours")
+            self.finished_patches = True
 
         self.sphere_quadric = gluNewQuadric()
         self.patch_hit_list = np.zeros([n, 1])
         self.next_hit_time = 0
-        self.finished_patches = False
         self.patch_points = sphere_points_maker(n)
 
     def update_positions(self, f):  # input f is the frame number
         if f == 0:
-            try:
-                self.data_file = open("data_dump", "r")
-            except FileNotFoundError:
-                raise FileNotFoundError("You deleted the data_dump file or didn't make it with Engine")
+            self.data_file = open("data_dump", "r")
             for n in range(3):
                 self.data_file.readline()  # get out of the way of the first few lines of non-data
         field = self.data_file.readline().strip().split(",")
@@ -114,11 +121,7 @@ class Animator:
         if self.finished_patches:
             return
         if f == 0:
-            try:
-                self.patch_file = open("patches", "r")
-            except FileNotFoundError:
-                print("You deleted the patches file or didn't make it with ParticlePatches. Patches won't have colours")
-                self.finished_patches = True
+            self.patch_file = open("patches", "r")
             self.patch_file.readline()  # get out of the way of the first line of non-data
             self.next_hit_time = float(self.patch_file.readline())
         if self.next_hit_time <= f * self.time_between_frames:  # if animation time is past the next collision time
@@ -129,7 +132,6 @@ class Animator:
                 self.finished_patches = True
 
     def animate(self):
-        refresh_rate = conds["refresh_rate"]
         pg.init()
 
         display = (int(1280 * 3 / 4), int(1024 * 3 / 4))  # 1280 x 1024
@@ -164,7 +166,7 @@ class Animator:
         up = False
         down = False
         # pause = False
-        for f in range(conds["total_store"]-1):
+        for f in range(self.total_store - 1):  # todo why does there need to be a -1 here?
             # while pause:
             #     for event in pg.event.get():
             #         if event.type == pg.QUIT:
@@ -219,7 +221,7 @@ class Animator:
                     camera_pos = camera_radius * normalise(camera_pos)
 
             # camera rotation rate modifiers shift and ctrl
-            rotate_amount_per_frame = refresh_rate * 1e-5 * 2 * np.pi
+            rotate_amount_per_frame = self.refresh_rate * 1e-5 * 2 * np.pi
             if pg.key.get_mods() & pg.KMOD_SHIFT:
                 rotate_amount_per_frame *= 2
             elif pg.key.get_mods() & pg.KMOD_CTRL:
@@ -253,40 +255,39 @@ class Animator:
             self.draw_container(container_height, contact, "back")
             # particle
             self.draw_particle(pos)
-            # lumps and/or patches
-            # lumps = True
-            lumps = False
-            patches = True
-            # patches = False
-            if lumps:
-                lump_offset = particle_x.dot(self.radius)
-                self.draw_particle_lump(pos + lump_offset, 1, [0.9, 0.1, 0.1, 0.8])
-                self.draw_particle_lump(pos - lump_offset, 2, [0.9, 0.1, 0.1, 0.8])
-                lump_offset = particle_z.dot(self.radius)
-                self.draw_particle_lump(pos + lump_offset, 1, [0.9, 0.1, 0.9, 0.8])
-                self.draw_particle_lump(pos - lump_offset, 2, [0.9, 0.1, 0.9, 0.8])
-                lump_offset = normalise(my_cross(particle_x, particle_z)).dot(self.radius)
-                self.draw_particle_lump(pos + lump_offset, 1, [0.9, 0.6, 0.1, 0.8])
-                self.draw_particle_lump(pos - lump_offset, 2, [0.9, 0.6, 0.1, 0.8])
-            if patches:
-                self.update_patch_hit_list(f)
-                j = 0
-                transformation_matrix = find_rotation_matrix(particle_x, particle_z).T.dot(self.radius)
-                max_hit_list = np.amax(self.patch_hit_list)
-                for patch in self.patch_points:
-                    if max_hit_list == self.patch_hit_list[j]:
-                        rgba = [0, 1, 1, 0.8]
-                    elif self.patch_hit_list[j] == 0:
-                        rgba = [0.1, 0.1, 0.1, 0.8]
-                    else:
-                        rgba = [1, 0, self.patch_hit_list[j] / max(1, max_hit_list), 0.8]
-                    self.draw_part_patch(pos + transformation_matrix.dot(patch), rgba)
-                    j += 1
+
+            # lumps?
+            # lump_offset = particle_x.dot(self.radius)
+            # self.draw_particle_lump(pos + lump_offset, 1, [0.9, 0.1, 0.1, 0.8])
+            # self.draw_particle_lump(pos - lump_offset, 2, [0.9, 0.1, 0.1, 0.8])
+            # lump_offset = particle_z.dot(self.radius)
+            # self.draw_particle_lump(pos + lump_offset, 1, [0.9, 0.1, 0.9, 0.8])
+            # self.draw_particle_lump(pos - lump_offset, 2, [0.9, 0.1, 0.9, 0.8])
+            # lump_offset = normalise(my_cross(particle_x, particle_z)).dot(self.radius)
+            # self.draw_particle_lump(pos + lump_offset, 1, [0.9, 0.6, 0.1, 0.8])
+            # self.draw_particle_lump(pos - lump_offset, 2, [0.9, 0.6, 0.1, 0.8])
+
+            # patches
+            self.update_patch_hit_list(f)
+            j = 0
+            transformation_matrix = find_rotation_matrix(particle_x, particle_z).T.dot(self.radius)
+            max_hit_list = np.amax(self.patch_hit_list)
+            for patch in self.patch_points:
+                if max_hit_list == self.patch_hit_list[j]:
+                    rgba = [0, 1, 1, 0.8]
+                elif self.patch_hit_list[j] == 0:
+                    rgba = [0.1, 0.1, 0.1, 0.8]
+                else:
+                    rgba = [1, 0, self.patch_hit_list[j] / max(1, max_hit_list), 0.8]
+                self.draw_part_patch(pos + transformation_matrix.dot(patch), rgba)
+                j += 1
+
             # container front
             self.draw_container(container_height, contact, "front")
 
-            pg.display.flip()  # updates the screen with the new frame
-            pg.time.wait(int((1000 / refresh_rate) - (pg.time.get_ticks() - elapsed_time)))
+            # update the screen with the new frame then pause for the appropriate time between frames
+            pg.display.flip()
+            pg.time.wait(int((1000 / self.refresh_rate) - (pg.time.get_ticks() - elapsed_time)))
 
     def draw_particle_lump(self, pos, one_or_two, rgba):
         glPushMatrix()  # saves current matrix
