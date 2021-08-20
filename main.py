@@ -82,8 +82,8 @@ if __name__ == '__main__':
     conds = get_conditions(filename="conds.txt")
 
     # todo better way of choosing what to do please? True False commenting out is strange
-    do_physics = False
-    # do_physics = True
+    # do_physics = False
+    do_physics = True
     if do_physics:
         print("doing physics...")
         from objects import Engine
