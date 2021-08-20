@@ -6,8 +6,6 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 
 from main import rotate, normalise, sphere_points_maker, find_rotation_matrix, my_cross
-from conditions import get_conditions
-conds = get_conditions(filename="conds.txt")
 
 
 def find_truth(o, n):  # old, new positions
@@ -17,8 +15,8 @@ def find_truth(o, n):  # old, new positions
     # todo this logic can be done better?
 
 
-def plot_energy(do_i_need_to_show):  # produces a plot of energy over time as from the data_dump file
-    time_list = np.linspace(0, conds["time_end"], num=conds["total_store"])
+def plot_energy(do_i_need_to_show, time_end, total_store):  # produces a plot of energy over time as from the data_dump file
+    time_list = np.linspace(0, time_end, num=total_store)
     energy_list = np.zeros(np.shape(time_list))
     try:
         data_file = open("data_dump", "r")
