@@ -3,7 +3,7 @@ import numpy as np
 
 # todo
 # air resistance? linear and/or rotational ---- do calculations
-# patches where there was contact on the container
+# tiny tiny bit of randomness in the collision forces (more realistic)?
 # measure all physical parameters:
 # container_amplitude
 # container_radius
@@ -11,11 +11,10 @@ import numpy as np
 # coefficient_of_restitution
 # gamma_t (viscous damping coefficient)
 # mu (coefficient of friction)
-# todo optimise for speed (side goal)
-# instead of v1 + v2 do np.add(v1, v2) or try the v1.add(v2)? check speed
 # todo 0.5? 1? what is the stepping? how exactly does the verlet work
-# todo get_conditions should only be imported to main, then put into other classes as inputs
-# todo tiny tiny bit of randomness in the collision forces (more realistic)? Do this after checking energy
+# todo optimise for speed (side goal)
+# try make everything a self. and see if that's faster than inputting to functions (specifically in particle force calc)
+# instead of v1 + v2 do np.add(v1, v2) or try the v1.add(v2)? check speed
 
 
 def q_conjugate(q):  # return the conjugate of a quaternion
@@ -92,15 +91,15 @@ if __name__ == '__main__':
     else:
         print("kept previous physics - data_dump is unchanged")
 
-    # do_animate = False
-    do_animate = True
+    do_animate = False
+    # do_animate = True
     if do_animate:
         print("animating....")
         from reader import Animator
         Animator(conds).animate()
 
-    do_analysis = False
-    # do_analysis = True
+    # do_analysis = False
+    do_analysis = True
     if do_analysis:
         print("analysing....")
         # do_energy_analysis = False
