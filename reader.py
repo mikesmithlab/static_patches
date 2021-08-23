@@ -5,7 +5,7 @@ from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-from main import rotate, normalise, sphere_points_maker, find_rotation_matrix, my_cross
+from my_tools import rotate, normalise, find_rotation_matrix, my_cross, sphere_points_maker
 
 
 def find_truth(o, n):  # logic for camera with inputs as old and new positions  # todo can be done a lot better
@@ -115,7 +115,7 @@ class Animator:
         self.sphere_quad = gluNewQuadric()
         self.patch_hit_list = np.zeros([n, 2])
         self.next_hit_time = 0
-        self.patch_points = sphere_points_maker(n)
+        self.patch_points = sphere_points_maker(n, conds["optimal_offset"])
 
     def update_positions(self, f):  # returns animation data from line f of data_dump
         if f == 0:

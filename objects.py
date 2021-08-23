@@ -2,7 +2,7 @@ import numpy as np
 from scipy.spatial import KDTree
 from tqdm import tqdm
 
-from main import find_magnitude, rotate, normalise, find_rotation_matrix, my_cross, sphere_points_maker
+from my_tools import find_magnitude, rotate, normalise, find_rotation_matrix, my_cross, sphere_points_maker
 
 
 class Container:
@@ -32,8 +32,8 @@ class PatchTracker:
     Finds which patch a collision happens in and stores the patch numbers with the time
     """
 
-    def __init__(self, n):
-        self.tree = KDTree(sphere_points_maker(n))  # input to KDTree for 3D should have dimensions (n, 3)
+    def __init__(self, n, offset):
+        self.tree = KDTree(sphere_points_maker(n, offset))  # input to KDTree for 3D should have dimensions (n, 3)
 
         self.patches_file = open("patches", "w")
         first_line = "Format: alternating lines, first is time of collision, second is patch indexes of hit"
@@ -55,12 +55,15 @@ class Particle:
     """
 
     def __init__(self, conds, step, g):
-        self.p_t = PatchTracker(conds["number_of_patches"])
+        self.p_t = PatchTracker(conds["number_of_patches"], conds["optimal_offset"])
         self.c = Container(conds["container_amplitude"], conds["container_omega"], conds["container_time_end"])
 
-        self.radius, self.density = conds["radius"], conds["density"]
-        self.mass, self.moment_of_inertia = conds["mass"], conds["moment_of_inertia"]
-        self.spring_constant, self.damping = conds["spring_constant"], conds["damping"]
+        self.radius = conds["radius"]
+        self.density = conds["density"]
+        self.mass = conds["mass"]
+        self.moment_of_inertia = conds["moment_of_inertia"]
+        self.spring_constant = conds["spring_constant"]
+        self.damping = conds["damping"]
         self.pos = conds["pos"]
         self.velocity = conds["velocity"]
         self.particle_x = normalise(np.array(

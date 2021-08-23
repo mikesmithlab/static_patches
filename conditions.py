@@ -15,6 +15,7 @@ def get_conditions(filename=None):
         'container_amplitude': 2 / 1000,
         'container_omega': 20 * 2 * np.pi,
         'number_of_patches': int(200),
+        'optimal_offset': 0.4383841477800122,  # if number_of_patches is not 200, this needs changing as well
         'pos': np.array([0.001, -0.001, 0]),
         'velocity': np.array([0.1 * 2 ** 0.4, 0.1 * 2 ** 0.6, 0]),
         'omega': 0 * np.array([50 * 2 * np.pi, 5 * 2 * np.pi, 12 * 2 * np.pi]),
@@ -45,13 +46,14 @@ def get_conditions(filename=None):
                     'container_amplitude': float(field[7]),
                     'container_omega': float(field[8]),
                     'number_of_patches': int(field[9]),
-                    'pos': np.array([float(field[10]), float(field[11]), float(field[12])]),
-                    'velocity': np.array([float(field[13]), float(field[14]), float(field[15])]),
-                    'omega': np.array([float(field[16]), float(field[17]), float(field[18])]),
-                    'time_end': float(field[19]),
-                    'container_time_end': float(field[20]),
-                    'time_warp': float(field[21]),
-                    'refresh_rate': float(field[22]),
+                    'optimal_offset': int(field[10]),
+                    'pos': np.array([float(field[11]), float(field[12]), float(field[13])]),
+                    'velocity': np.array([float(field[14]), float(field[15]), float(field[16])]),
+                    'omega': np.array([float(field[17]), float(field[18]), float(field[19])]),
+                    'time_end': float(field[20]),
+                    'container_time_end': float(field[21]),
+                    'time_warp': float(field[22]),
+                    'refresh_rate': float(field[23]),
                 }
                 print(f"Read properties and initial conditions from {filename}.")
             except ValueError:
@@ -61,8 +63,8 @@ def get_conditions(filename=None):
             file = open(filename, "w")
             l1 = (
                 f"g,radius,density,coefficient_of_restitution,mu,gamma_t,container_radius,container_amplitude,"
-                f"container_omega,container_stop_time,number_of_patches,pos(3),velocity(3),omega(3),time_end,time_warp,"
-                f"refresh_rate\n"
+                f"container_omega,container_stop_time,number_of_patches,optimal_offset,pos(3),velocity(3),omega(3),"
+                f"time_end,time_warp,refresh_rate\n"
             )
             p = conds['pos']
             v = conds['velocity']
@@ -70,9 +72,9 @@ def get_conditions(filename=None):
             l2 = (
                 f"{conds['g']},{conds['radius']},{conds['density']},{conds['coefficient_of_restitution']},"
                 f"{conds['mu']},{conds['gamma_t']},{conds['container_radius']},{conds['container_amplitude']},"
-                f"{conds['container_omega']},{conds['number_of_patches']},{p[0]},{p[1]},{p[2]},{v[0]},{v[1]},{v[2]},"
-                f"{o[0]},{o[1]},{o[2]},{conds['time_end']},{conds['container_time_end']},{conds['time_warp']},"
-                f"{conds['refresh_rate']}"
+                f"{conds['container_omega']},{conds['number_of_patches']},{conds['optimal_offset']},"
+                f"{p[0]},{p[1]},{p[2]},{v[0]},{v[1]},{v[2]},{o[0]},{o[1]},{o[2]},"
+                f"{conds['time_end']},{conds['container_time_end']},{conds['time_warp']},{conds['refresh_rate']}"
             )
             file.writelines(l1)
             file.writelines(l2)
