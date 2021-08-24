@@ -131,7 +131,7 @@ class Animator:
         # pos = [2, 3, 4]
         # particle_x_axis = [5, 6, 7]
         # particle_z_axis = [8, 9, 10]
-        # container_height = 11
+        # container_pos = 11
         # contact = 13
 
     def update_patch_hit_list(self, f):  # input f is the frame number

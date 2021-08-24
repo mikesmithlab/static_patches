@@ -61,25 +61,12 @@ def sphere_points_maker(n, offset):  # returns n points on a unit sphere (roughl
     return np.array([np.cos(theta) * np.sin(phi), np.sin(theta) * np.sin(phi), np.cos(phi)]).T
 
 
-def offset_finder(n):
+def offset_finder(n):  # finds the best offset (within some precision) for the sphere_point_maker for standard deviation
     best_std = None
     best_offset = None
     for offset in tqdm(np.arange(0.4, 0.6, 0.00001)):  # offset is in range 0 to 1
         points = sphere_points_maker(n, offset)
-        tree = KDTree(points)
-        # dists = np.zeros(n)
-        # for i in range(n):
-        # x = np.ma.array(points[:, 0], mask=False)
-        # y = np.ma.array(points[:, 1], mask=False)
-        # z = np.ma.array(points[:, 2], mask=False)
-        # x.mask[i] = True
-        # y.mask[i] = True
-        # z.mask[i] = True
-        # x = x.compressed()
-        # y = y.compressed()
-        # z = z.compressed()
-        # que = np.array([x, y, z]).T
-        dists = np.amax(tree.query(points, k=2)[0], 1)
+        dists = np.amax(KDTree(points).query(points, k=2)[0], 1)
         standard_deviation = dists.std()
         if best_std is None:
             best_offset = offset
@@ -87,4 +74,13 @@ def offset_finder(n):
         elif best_std > standard_deviation:
             best_offset = offset
             best_std = standard_deviation
-    return best_offset
+    return best_offset  # todo standard deviation is not what we want, we want area!!!!
+
+
+def find_tangent_force(normal_force, normal, surface_velocity, gamma_t, mu):  # returns tangent (friction) force
+    tangent_surface_velocity = surface_velocity - normal.dot(normal.dot(surface_velocity))
+    xi_dot = find_magnitude(tangent_surface_velocity)
+    if xi_dot == 0:  # precisely zero magnitude tangential surface relative velocity causes divide by 0 error
+        return np.array([0, 0, 0])
+    tangent_direction = tangent_surface_velocity.dot(1 / xi_dot)
+    return tangent_direction.dot(-min(gamma_t * xi_dot, mu * find_magnitude(normal_force)))

@@ -20,7 +20,8 @@ if __name__ == '__main__':
     conds = get_conditions(filename="conds.txt")
 
     # from my_tools import offset_finder
-    # print(offset_finder(conds['number_of_patches']))
+    # conds['optimal_offset'] = offset_finder(conds['number_of_patches'])
+    # print(conds['optimal_offset'])
 
     # todo better way of choosing what to do please? True False commenting out is strange
     do_physics = False
@@ -40,8 +41,8 @@ if __name__ == '__main__':
         from reader import Animator
         Animator(conds).animate()
 
-    do_analysis = False
-    # do_analysis = True
+    # do_analysis = False
+    do_analysis = True
     if do_analysis:
         print("analysing....")
         # do_energy_analysis = False
