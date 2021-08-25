@@ -81,7 +81,7 @@ class Particle:
 
     def integrate_half(self, time_step, force, torque, first_call):
         self.velocity = self.velocity + force.dot(self.force_multiplier)
-        self.omega = self.omega + torque.dot(self.torque_multiplier)  # todo try if torque != 0
+        self.omega = self.omega + torque.dot(self.torque_multiplier)  # todo try if torque all(!= 0) for speed? :o
         if first_call:
             self.pos = self.pos + self.velocity.dot(time_step)
             angles = self.omega.dot(time_step)
@@ -109,10 +109,9 @@ class Engine:
         self.contact = False  # todo the only thing contact is used for is graphics. Semi-redundant: patches tracks hits
         self.is_new_collision = True
 
-        self.data_file = open("data_dump", "w")
-        defaults = open("conds.txt", "r")  # todo small problem: if conds has the wrong format, get_conds ignores it
-        self.data_file.writelines(defaults.read())  # todo if it is ignored, the printed conds aren't being used in code
-        defaults.close()
+        self.data_file = open("data_dump", "w")  # todo check whether it is stored in memory
+        with open("conds.txt", "r") as defaults:  # todo small problem: if conds has the wrong format, get_conds ignores it
+            self.data_file.writelines(defaults.read())  # todo if it is ignored, the printed conds aren't being used in code
         info_line = (
                 "\n(end of)iteration,time,pos_x,pos_y,pos_z,particle_x_axis_x,particle_x_axis_y,particle_x_axis_z,"
                 "particle_z_axis_x,particle_z_axis_y,particle_z_axis_z,container_pos,energy,contact"
@@ -141,7 +140,8 @@ class Engine:
         overlap = self.radii_difference - find_magnitude(relative_pos)
         if overlap >= 0:  # overlap is the distance the particle is inside the container wall (is >= 0 if not inside)
             self.contact = False
-            self.is_new_collision = True
+            if overlap >= self.p.radius * 0.001:
+                self.is_new_collision = True
             return self.p.gravity_force, np.array([0, 0, 0]), 0  # return 0 overlap so find_energy doesn't need logic
         self.contact = True
         normal = normalise(relative_pos)
