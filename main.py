@@ -1,3 +1,7 @@
+from conditions import get_conditions
+from objects import Engine
+from reader import Animator, plot_energy, plot_patches
+
 # todo
 # air resistance? linear and/or rotational ---- do calculations
 # tiny tiny bit of randomness in the collision forces (more realistic)?
@@ -16,9 +20,7 @@
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    from conditions import get_conditions
     conds = get_conditions(filename="conds.txt")
-
     # from my_tools import offset_finder
     # conds['optimal_offset'] = offset_finder(conds['number_of_patches'])
     # print(conds['optimal_offset'])
@@ -28,7 +30,6 @@ if __name__ == '__main__':
     # do_physics = True
     if do_physics:
         print("doing physics...")
-        from objects import Engine
         Engine(conds).run()
         print("physics is done - data_dump has been written to")
     else:
@@ -38,7 +39,6 @@ if __name__ == '__main__':
     # do_animate = True
     if do_animate:
         print("animating....")
-        from reader import Animator
         Animator(conds).animate()
 
     # do_analysis = False
@@ -50,8 +50,6 @@ if __name__ == '__main__':
         # do_patch_analysis = False
         do_patch_analysis = True
         if do_energy_analysis:
-            from reader import plot_energy
             plot_energy(do_patch_analysis, conds["time_end"], conds["total_store"])
         if do_patch_analysis:
-            from reader import plot_patches
             plot_patches(conds["number_of_patches"])
