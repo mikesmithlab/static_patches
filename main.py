@@ -20,7 +20,7 @@ from reader import Animator, plot_energy, plot_patches
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    conds = get_conditions(filename="conds.txt")
+    conds = get_conditions(filename="conds.txt")  # todo a "try" here? have an "except FileNotFound try data_dump"
     # from my_tools import offset_finder
     # conds['optimal_offset'] = offset_finder(conds['number_of_patches'])
     # print(conds['optimal_offset'])
