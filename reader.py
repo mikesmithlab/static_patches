@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import pygame as pg
 from pygame.locals import *
 from OpenGL.GL import *
@@ -21,70 +20,6 @@ def find_rgba(hits, max_hits):  # returns an rgb colour and transparency for pat
         return [0, 1, 1, 1]
     else:
         return [1, 0, hits / max(1, max_hits), 0.8]  # avoid a divide by 0 using max
-
-
-def plot_energy(showing, time_end, total_store):  # produces a plot of energy over time as from the data_dump file
-    time_list = np.linspace(0, time_end, num=total_store)
-    energy_list = np.zeros(np.shape(time_list))
-    try:
-        data_file = open("data_dump", "r")
-    except FileNotFoundError:
-        raise FileNotFoundError("You deleted the data_dump file or didn't make it with Engine")
-
-    i = -3  # set to -3 to get out of the way of the first few lines of non-data
-    for line in data_file:
-        if i >= 0:
-            energy_list[i] = float(line.strip().split(",")[12])  # read energy from this line and store it
-        i += 1
-    data_file.close()
-
-    fig_e = plt.figure()
-    fig_e.canvas.manager.set_window_title("Energy Plot")
-    plt.plot(time_list, energy_list)
-    plt.xlabel("Time/s")
-    plt.ylabel("Energy/J")
-    if showing:
-        return
-    plt.show()
-
-
-def plot_patches(n):  # produces a plot of cumulative hits over time for every patch
-    try:
-        patch_file = open("patches", "r")
-    except FileNotFoundError:
-        raise FileNotFoundError("You deleted the patches file or didn't make it with PatchTracker")
-    plot_length = int(1 + (len(patch_file.readlines()) - 1) / 2)  # todo check this is the right number
-    hit_time_list = np.zeros(plot_length)
-    p_patch_hit_list = np.zeros([plot_length, n])
-    c_patch_hit_list = np.zeros([plot_length, n])
-    patch_file = open("patches", "r")
-
-    i = -1  # set to -1 to get out of the way of the first line of non-data
-    for line in patch_file:
-        if i >= 0:
-            if i % 2 == 0:
-                hit_time_list[int(1 + i / 2)] = float(line)  # store the time of this collision
-            else:
-                j = int(1 + (i - 1) / 2)
-                field = line.strip().split(",")
-                p_patch_hit_list[j, :] = p_patch_hit_list[j - 1, :]  # cumulative
-                p_patch_hit_list[j, int(field[0])] += 1  # add one to the number of collisions this patch has
-                c_patch_hit_list[j, :] = c_patch_hit_list[j - 1, :]
-                c_patch_hit_list[j, int(field[1])] += 1
-        i += 1
-    patch_file.close()
-
-    fig_p = plt.figure()
-    fig_p.canvas.manager.set_window_title("Particle Patch Hits")
-    plt.plot(hit_time_list, p_patch_hit_list, hit_time_list, np.sum(p_patch_hit_list, axis=1) / n)  # add average plot
-    plt.xlabel("Time/s")
-    plt.ylabel("Hits")
-    fig_c = plt.figure()
-    fig_c.canvas.manager.set_window_title("Container Patch Hits")
-    plt.plot(hit_time_list, c_patch_hit_list, hit_time_list, np.sum(c_patch_hit_list, axis=1) / n)  # add average plot
-    plt.xlabel("Time/s")
-    plt.ylabel("Hits")
-    plt.show()
 
 
 class Animator:

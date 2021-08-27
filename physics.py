@@ -3,7 +3,7 @@ from scipy.spatial import KDTree
 from tqdm import tqdm
 
 from my_tools import find_magnitude, rotate, normalise, find_rotation_matrix, my_cross, sphere_points_maker,\
-    find_tangent_force
+    find_tangent_force, charge_decay_function, charge_hit_function
 
 
 class PatchTracker:
@@ -15,14 +15,39 @@ class PatchTracker:
         self.tree = KDTree(sphere_points_maker(n, offset))  # input to KDTree for 3D should have dimensions (n, 3)
 
         self.patches_file = open("patches", "w")
-        first_line = "Format: alternating lines, first is time of collision, second is patch indexes of hit"
-        self.patches_file.writelines(first_line)
+        self.patches_file.writelines(
+            "Format: alternating lines, first is time of collision, second is patch indexes of hit"
+        )
+
+        self.charges_file = open("charges", "w")
+        self.charges_file.writelines(
+            "Format: 3 alternating lines, first is time of collision, second is particle patches, "
+            "third is container patches"
+        )
+        self.charges_part = np.zeros(n)
+        self.charges_cont = np.zeros(n)
+
+        self.last_time = 0
 
     def patch_tracker(self, t, pos, particle_x, particle_z):  # input pos is normalised position relative to container
+        part = self.tree.query(find_rotation_matrix(particle_x, particle_z).dot(pos), k=1)[1]
+        cont = self.tree.query(pos, k=1)[1]
+        # output of query is [distance_to_nearest_point, point_number] so we only care about output 1
+
+        # patch tracking for animation and analysis
         self.patches_file.writelines(
-            f"\n{t}\n{self.tree.query(find_rotation_matrix(particle_x, particle_z).dot(pos), k=1)[1]},"
-            f"{self.tree.query(pos, k=1)[1]}"
-        )  # output of query is [distance_to_nearest_point, point_number] so we only care about output 1
+            f"\n{t}\n{part},{cont}"
+        )
+
+        # charge tracking for physics
+        self.charges_part[part], self.charges_cont[cont] = charge_hit_function(self.charges_part[part],
+                                                                               self.charges_cont[cont])
+        self.charges_file.writelines(
+            f"\n{t}\n{str(list(self.charges_part)).replace('[','').replace(']','')}"
+            f"\n{str(list(self.charges_cont)).replace('[','').replace(']','')}"
+        )
+
+        self.last_time = t
 
     def close(self):
         self.patches_file.close()
@@ -112,11 +137,10 @@ class Engine:
         self.data_file = open("data_dump", "w")  # todo check whether it is stored in memory
         with open("conds.txt", "r") as defaults:  # todo small problem: if conds has the wrong format, get_conds ignores it
             self.data_file.writelines(defaults.read())  # todo if it is ignored, the printed conds aren't being used in code
-        info_line = (
-                "\n(end of)iteration,time,pos_x,pos_y,pos_z,particle_x_axis_x,particle_x_axis_y,particle_x_axis_z,"
-                "particle_z_axis_x,particle_z_axis_y,particle_z_axis_z,container_pos,energy,contact"
+        self.data_file.writelines(
+            "\n(end of)iteration,time,pos_x,pos_y,pos_z,particle_x_axis_x,particle_x_axis_y,particle_x_axis_z,"
+            "particle_z_axis_x,particle_z_axis_y,particle_z_axis_z,container_pos,energy,contact"
         )
-        self.data_file.writelines(info_line)
 
         self.total_store = 0
 
@@ -134,6 +158,10 @@ class Engine:
         self.close()
 
     def update(self, t, do_patches):  # returns force and torque, also updates distances and patches
+        # ----------------
+        # charge decay
+        self.p_t.charges_part, self.p_t.charges_cont = charge_decay_function(
+            self.p_t.charges_part, self.p_t.charges_cont, self.time_step / 2)
         # ----------------
         # distances
         relative_pos = self.p.pos - self.c.container_pos(t)

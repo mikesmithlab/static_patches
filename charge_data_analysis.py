@@ -127,14 +127,17 @@ plt.xlabel("Real elapsed time/s")
 plt.ylabel("Charge/nC")
 
 # proper timing run ----------------------------------
+# # bead1_times_full = np.array([
+# #     0, 0, 0,
+# #     27, 0, 18,
+# #     30, 0, 18,
+# #     34, 0, 24
+# # ])
 # bead1_times_full = np.array([
 #     0, 0, 0,
 #     27, 0, 18,
 #     30, 0, 18,
-#     34, 0, 24
-# ])
-# bead2_times_full = np.array([
-#     0, 0, 0,
+#     34, 0, 24,
 #     0, 0, 2 * 60,
 #     0, 0, 2 * 60,
 #     0, 0, 24,

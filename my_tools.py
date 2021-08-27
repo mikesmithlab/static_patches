@@ -84,3 +84,23 @@ def find_tangent_force(normal_force, normal, surface_velocity, gamma_t, mu):  # 
         return np.array([0, 0, 0])
     tangent_direction = tangent_surface_velocity.dot(1 / xi_dot)
     return tangent_direction.dot(-min(gamma_t * xi_dot, mu * find_magnitude(normal_force)))
+
+
+def charge_decay_function(charge_part, charge_cont, time_step):  # returns the new charges due to decay (to air?)
+    # todo:
+    # find some correct decay equation
+    decay = np.exp(-0.005 * time_step)  # this decay constant is for half-life of 2 minutes
+    charge_part = charge_part * decay
+    charge_cont = charge_cont * decay  # todo speed up by calculating once, not every step
+    return charge_part, charge_cont
+
+
+def charge_hit_function(patch_charge_part, patch_charge_cont):  # returns the new charges of colliding patches
+    # todo:
+    # do previous charges of the patches matter? or just add some constant every collision? ('proper "saturation"')
+    # does the force matter?
+    # does the charge of nearby patches matter? (change patch size for this?)
+    # constant that is added needs to change with patch area (work area out once then input it to this function)
+    patch_charge_part = patch_charge_part + 1e-12
+    patch_charge_cont = patch_charge_cont + 1e-12
+    return patch_charge_part, patch_charge_cont
