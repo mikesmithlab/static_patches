@@ -3,7 +3,7 @@ from scipy.spatial import KDTree
 from tqdm import tqdm
 
 from my_tools import find_magnitude, rotate, normalise, find_rotation_matrix, my_cross, sphere_points_maker,\
-    find_tangent_force, charge_decay_function, charge_hit_function
+    find_tangent_force, charge_decay_function, charge_hit_function, round_sig_figs
 
 
 class PatchTracker:
@@ -27,30 +27,22 @@ class PatchTracker:
         self.charges_part = np.zeros(n)
         self.charges_cont = np.zeros(n)
 
-        self.last_time = 0
-
-    def patch_tracker(self, t, pos, particle_x, particle_z):  # input pos is normalised position relative to container
+    def collision_update(self, t, pos, particle_x, particle_z):  # input pos: normalised position relative to container
+        # find the indexes of the patches that collided on the particle and container
         part = self.tree.query(find_rotation_matrix(particle_x, particle_z).dot(pos), k=1)[1]
         cont = self.tree.query(pos, k=1)[1]
         # output of query is [distance_to_nearest_point, point_number] so we only care about output 1
 
         # patch tracking for animation and analysis
-        self.patches_file.writelines(
-            f"\n{t}\n{part},{cont}"
-        )
+        self.patches_file.writelines(f"\n{t}\n{part},{cont}")
 
         # charge tracking for physics
         self.charges_part[part], self.charges_cont[cont] = charge_hit_function(self.charges_part[part],
                                                                                self.charges_cont[cont])
-        self.charges_file.writelines(
-            f"\n{t}\n{str(list(self.charges_part)).replace('[','').replace(']','')}"
-            f"\n{str(list(self.charges_cont)).replace('[','').replace(']','')}"
-        )
-
-        self.last_time = t
 
     def close(self):
         self.patches_file.close()
+        self.charges_file.close()
 
 
 class Container:
@@ -89,9 +81,9 @@ class Particle:
         self.damping = conds["damping"]
         self.pos = conds["pos"]
         self.velocity = conds["velocity"]
-        self.particle_x = normalise(np.array(
+        self.x_axis = normalise(np.array(
             [np.exp(0.5345), np.sqrt(0.456), np.pi / 11]))  # some random numbers so it isn't along any particular axis
-        self.particle_z = normalise(my_cross(np.array([0, 0, 1]), self.particle_x))
+        self.z_axis = normalise(my_cross(np.array([0, 0, 1]), self.x_axis))
         self.omega = conds["omega"]
 
         self.force_multiplier = step / (2 * self.mass)
@@ -106,12 +98,12 @@ class Particle:
 
     def integrate_half(self, time_step, force, torque, first_call):
         self.velocity = self.velocity + force.dot(self.force_multiplier)
-        self.omega = self.omega + torque.dot(self.torque_multiplier)  # todo try if torque all(!= 0) for speed? :o
+        self.omega = self.omega + torque.dot(self.torque_multiplier)
         if first_call:
             self.pos = self.pos + self.velocity.dot(time_step)
             angles = self.omega.dot(time_step)
-            self.particle_x = normalise(rotate(angles, self.particle_x))
-            self.particle_z = normalise(rotate(angles, self.particle_z))
+            self.x_axis = rotate(angles, self.x_axis)
+            self.z_axis = rotate(angles, self.z_axis)
 
 
 class Engine:
@@ -133,16 +125,16 @@ class Engine:
         self.gamma_t = conds["gamma_t"]  # viscous damping coefficient of the surfaces
         self.contact = False  # todo the only thing contact is used for is graphics. Semi-redundant: patches tracks hits
         self.is_new_collision = True
+        self.decay = np.exp(-0.005 * self.time_step / 2)  # half-life approx 2 mins. (t/2) as its called twice per step
 
         self.data_file = open("data_dump", "w")  # todo check whether it is stored in memory
-        with open("conds.txt", "r") as defaults:  # todo small problem: if conds has the wrong format, get_conds ignores it
-            self.data_file.writelines(defaults.read())  # todo if it is ignored, the printed conds aren't being used in code
+        with open("conds.txt", "r") as defaults:
+            self.data_file.writelines(defaults.read())
         self.data_file.writelines(
-            "\n(end of)iteration,time,pos_x,pos_y,pos_z,particle_x_axis_x,particle_x_axis_y,particle_x_axis_z,"
-            "particle_z_axis_x,particle_z_axis_y,particle_z_axis_z,container_pos,energy,contact"
+            "\n(end of)iteration,time,pos_x,pos_y,pos_z,"
+            "x_axis_x,x_axis_y,x_axis_z,z_axis_x,z_axis_y,z_axis_z,"
+            "container_pos,energy,contact"
         )
-
-        self.total_store = 0
 
     def run(self):  # runs the physics loop then cleans up after itself
         for i in tqdm(range(self.total_steps)):  # tqdm gives a progress bar
@@ -150,6 +142,14 @@ class Engine:
             if i % self.store_interval == 0:  # store if this is a store step
                 force, torque, overlap = self.update(time, True)
                 self.store(i, time, overlap)
+                if i % (self.store_interval * 100) == 0:  # store patch charges every 100 store steps
+                    self.p_t.charges_file.writelines(
+                        f"\n{time}"
+                        f"\n{str(list(round_sig_figs(self.p_t.charges_part, 5))).replace('[', '').replace(']', '')}"
+                        f"\n{str(list(round_sig_figs(self.p_t.charges_cont, 5))).replace('[', '').replace(']', '')}"
+                    )
+                    self.p.x_axis = normalise(self.p.x_axis)
+                    self.p.z_axis = normalise(self.p.z_axis)  # todo does this make them innacurate?
             else:  # this else exists for speed - the code runs about 10% faster when overlap isn't assigned in update!
                 force, torque, _ = self.update(time, True)
             self.p.integrate_half(self.time_step, force, torque, True)
@@ -157,11 +157,11 @@ class Engine:
             self.p.integrate_half(self.time_step, force, torque, False)
         self.close()
 
-    def update(self, t, do_patches):  # returns force and torque, also updates distances and patches
+    def update(self, t, first_call):  # returns force and torque, also updates distances and patches
         # ----------------
-        # charge decay
+        # charge decay/spreading
         self.p_t.charges_part, self.p_t.charges_cont = charge_decay_function(
-            self.p_t.charges_part, self.p_t.charges_cont, self.time_step / 2)
+            self.p_t.charges_part, self.p_t.charges_cont, self.decay)
         # ----------------
         # distances
         relative_pos = self.p.pos - self.c.container_pos(t)
@@ -175,16 +175,16 @@ class Engine:
         normal = normalise(relative_pos)
         # ----------------
         # speeds
-        overlap_speed = self.p.velocity - self.c.container_velocity(t)
-        surface_relative_velocity = overlap_speed - my_cross(normal, self.p.omega.dot(self.p.radius))
+        overlap_velocity = self.p.velocity - self.c.container_velocity(t)
+        surface_relative_velocity = overlap_velocity - my_cross(normal, self.p.omega.dot(self.p.radius))
         # ----------------
         # forces
-        normal_force = normal.dot(self.p.spring_constant * overlap - self.p.damping * normal.dot(overlap_speed))
+        normal_force = normal.dot(self.p.spring_constant * overlap - self.p.damping * normal.dot(overlap_velocity))
         tangent_force = find_tangent_force(normal_force, normal, surface_relative_velocity, self.gamma_t, self.mu)
         # ----------------
         # patches
-        if do_patches and self.is_new_collision:
-            self.p_t.patch_tracker(t, normal, self.p.particle_x, self.p.particle_z)
+        if first_call and self.is_new_collision:
+            self.p_t.collision_update(t, normal, self.p.x_axis, self.p.z_axis)
             self.is_new_collision = False
             # make sure the next calls don't update the patches unless it is a new collision
             # todo this biases the first patch touched (bias direction -avg_angular_velocity)
@@ -194,11 +194,11 @@ class Engine:
     def store(self, j, t, overlap):  # stores anything that needs storing this step in the data_dump file
         self.data_file.writelines(
             f"\n{j},{t},{self.p.pos[0]:.5g},{self.p.pos[1]:.5g},{self.p.pos[2]:.5g},"
-            f"{self.p.particle_x[0]:.5g},{self.p.particle_x[1]:.5g},{self.p.particle_x[2]:.5g},"
-            f"{self.p.particle_z[0]:.5g},{self.p.particle_z[1]:.5g},{self.p.particle_z[2]:.5g},"
+            f"{self.p.x_axis[0]:.5g},{self.p.x_axis[1]:.5g},{self.p.x_axis[2]:.5g},"
+            f"{self.p.z_axis[0]:.5g},{self.p.z_axis[1]:.5g},{self.p.z_axis[2]:.5g},"
             f"{self.c.container_pos(t)[2]:.5g},{self.p.find_energy(overlap)},{self.contact}"
         )  # only store container height! container x and y can come later if needed
-        self.total_store += 1
+        # todo currently 5 significant figures, could do 4? or even 3?
 
     def close(self):  # ensures files are closed when they need to be
         self.data_file.close()

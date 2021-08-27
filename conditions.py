@@ -57,7 +57,7 @@ def get_conditions(filename=None):
                 }
                 print(f"Read properties and initial conditions from {filename}.")
             except ValueError:
-                print(f"Wrong format of given file: {filename}. Ignoring the file - using default conds.")
+                raise ValueError(f"Wrong format of given file: '{filename}'. Fix or delete the file then rerun.")
         except FileNotFoundError:
             print(f"Can't find {filename}. Making new with default conds.")
             file = open(filename, "w")

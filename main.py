@@ -21,20 +21,20 @@ from analyser import plot_energy, plot_patches, plot_charges, show_plots
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    conds = get_conditions(filename="conds.txt")  # todo a "try" here? have an "except FileNotFound try data_dump"
+    conds = get_conditions(filename="conds.txt")
     # from my_tools import offset_finder
     # conds['optimal_offset'] = offset_finder(conds['number_of_patches'])
     # print(conds['optimal_offset'])
 
     # todo better way of choosing what to do please? True False commenting out is strange
-    do_physics = False
-    # do_physics = True
+    # do_physics = False
+    do_physics = True
     if do_physics:
         print("doing physics...")
         Engine(conds).run()
-        print("physics is done - data_dump has been written to")
+        print("physics is done - the data_dump, charges, and patches files have been written to")
     else:
-        print("kept previous physics - data_dump is unchanged")
+        print("kept previous physics - the data_dump, charges, and patches files are unchanged")
 
     do_animate = False
     # do_animate = True
@@ -42,14 +42,14 @@ if __name__ == '__main__':
         print("animating....")
         Animator(conds).animate()
 
-    # do_analysis = False
-    do_analysis = True
+    do_analysis = False
+    # do_analysis = True
     if do_analysis:
         print("analysing....")
         # do_energy_analysis = False
         do_energy_analysis = True
-        # do_patch_analysis = False
-        do_patch_analysis = True
+        do_patch_analysis = False
+        # do_patch_analysis = True
         # do_charge_analysis = False
         do_charge_analysis = True
         if do_energy_analysis:

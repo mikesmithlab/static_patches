@@ -54,8 +54,8 @@ def find_rotation_matrix(new_x, new_z):  # returns rotation matrix to rotate an 
 
 
 def sphere_points_maker(n, offset):  # returns n points on a unit sphere (roughly) evenly distributed
+    # credit for this spreading algorithm: https://newbedev.com/evenly-distributing-n-points-on-a-sphere
     indices = np.arange(0, n, 1) + offset
-    # https://newbedev.com/evenly-distributing-n-points-on-a-sphere
     phi = np.arccos(1 - indices.dot(2 / n))
     theta = indices.dot(np.pi * (1 + 5 ** 0.5))
     return np.array([np.cos(theta) * np.sin(phi), np.sin(theta) * np.sin(phi), np.cos(phi)]).T
@@ -86,21 +86,25 @@ def find_tangent_force(normal_force, normal, surface_velocity, gamma_t, mu):  # 
     return tangent_direction.dot(-min(gamma_t * xi_dot, mu * find_magnitude(normal_force)))
 
 
-def charge_decay_function(charge_part, charge_cont, time_step):  # returns the new charges due to decay (to air?)
+def charge_decay_function(charge_part, charge_cont, decay):  # returns the new charges due to decay (to air?)
     # todo:
     # find some correct decay equation
-    decay = np.exp(-0.005 * time_step)  # this decay constant is for half-life of 2 minutes
-    charge_part = charge_part * decay
-    charge_cont = charge_cont * decay  # todo speed up by calculating once, not every step
-    return charge_part, charge_cont
+    # does the charge spread to nearby patches? <-- would be horrible to compute
+    # decay = np.exp(-0.005 * time_step)  # this decay constant is for half-life of 2 minutes
+    return charge_part.dot(decay), charge_cont.dot(decay)
 
 
 def charge_hit_function(patch_charge_part, patch_charge_cont):  # returns the new charges of colliding patches
     # todo:
     # do previous charges of the patches matter? or just add some constant every collision? ('proper "saturation"')
     # does the force matter?
-    # does the charge of nearby patches matter? (change patch size for this?)
+    # does the charge of nearby patches matter?
     # constant that is added needs to change with patch area (work area out once then input it to this function)
-    patch_charge_part = patch_charge_part + 1e-12
-    patch_charge_cont = patch_charge_cont + 1e-12
-    return patch_charge_part, patch_charge_cont
+    return patch_charge_part + 1e-13, patch_charge_cont + 1e-13
+
+
+def round_sig_figs(x, p):  # credit for this significant figures function https://stackoverflow.com/revisions/59888924/2
+    x = np.asarray(x)
+    x_positive = np.where(np.isfinite(x) & (x != 0), np.abs(x), 10 ** (p - 1))
+    mags = 10 ** (p - 1 - np.floor(np.log10(x_positive)))
+    return np.round(x * mags) / mags
