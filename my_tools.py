@@ -54,32 +54,19 @@ def find_rotation_matrix(new_x, new_z):  # returns rotation matrix to rotate an 
 
 
 def sphere_points_maker(n, offset):  # returns n points on a unit sphere (roughly) evenly distributed
+    # credit for this spreading algorithm: https://newbedev.com/evenly-distributing-n-points-on-a-sphere
     indices = np.arange(0, n, 1) + offset
-    # https://newbedev.com/evenly-distributing-n-points-on-a-sphere
     phi = np.arccos(1 - indices.dot(2 / n))
     theta = indices.dot(np.pi * (1 + 5 ** 0.5))
     return np.array([np.cos(theta) * np.sin(phi), np.sin(theta) * np.sin(phi), np.cos(phi)]).T
 
 
-def offset_finder(n):
+def offset_finder(n):  # finds the best offset (within some precision) for the sphere_point_maker for standard deviation
     best_std = None
     best_offset = None
     for offset in tqdm(np.arange(0.4, 0.6, 0.00001)):  # offset is in range 0 to 1
         points = sphere_points_maker(n, offset)
-        tree = KDTree(points)
-        # dists = np.zeros(n)
-        # for i in range(n):
-        # x = np.ma.array(points[:, 0], mask=False)
-        # y = np.ma.array(points[:, 1], mask=False)
-        # z = np.ma.array(points[:, 2], mask=False)
-        # x.mask[i] = True
-        # y.mask[i] = True
-        # z.mask[i] = True
-        # x = x.compressed()
-        # y = y.compressed()
-        # z = z.compressed()
-        # que = np.array([x, y, z]).T
-        dists = np.amax(tree.query(points, k=2)[0], 1)
+        dists = np.amax(KDTree(points).query(points, k=2)[0], 1)
         standard_deviation = dists.std()
         if best_std is None:
             best_offset = offset
@@ -87,4 +74,37 @@ def offset_finder(n):
         elif best_std > standard_deviation:
             best_offset = offset
             best_std = standard_deviation
-    return best_offset
+    return best_offset  # todo standard deviation is not what we want, we want area!!!!
+
+
+def find_tangent_force(normal_force, normal, surface_velocity, gamma_t, mu):  # returns tangent (friction) force
+    tangent_surface_velocity = surface_velocity - normal.dot(normal.dot(surface_velocity))
+    xi_dot = find_magnitude(tangent_surface_velocity)
+    if xi_dot == 0:  # precisely zero magnitude tangential surface relative velocity causes divide by 0 error
+        return np.array([0, 0, 0])
+    tangent_direction = tangent_surface_velocity.dot(1 / xi_dot)
+    return tangent_direction.dot(-min(gamma_t * xi_dot, mu * find_magnitude(normal_force)))
+
+
+def charge_decay_function(charge_part, charge_cont, decay):  # returns the new charges due to decay (to air?)
+    # todo:
+    # find some correct decay equation
+    # does the charge spread to nearby patches? <-- would be horrible to compute
+    # decay = np.exp(-0.005 * time_step)  # this decay constant is for half-life of 2 minutes
+    return charge_part.dot(decay), charge_cont.dot(decay)
+
+
+def charge_hit_function(patch_charge_part, patch_charge_cont):  # returns the new charges of colliding patches
+    # todo:
+    # do previous charges of the patches matter? or just add some constant every collision? ('proper "saturation"')
+    # does the force matter?
+    # does the charge of nearby patches matter?
+    # constant that is added needs to change with patch area (work area out once then input it to this function)
+    return patch_charge_part + 1e-13, patch_charge_cont + 1e-13
+
+
+def round_sig_figs(x, p):  # credit for this significant figures function https://stackoverflow.com/revisions/59888924/2
+    x = np.asarray(x)
+    x_positive = np.where(np.isfinite(x) & (x != 0), np.abs(x), 10 ** (p - 1))
+    mags = 10 ** (p - 1 - np.floor(np.log10(x_positive)))
+    return np.round(x * mags) / mags

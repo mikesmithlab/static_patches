@@ -46,7 +46,7 @@ def get_conditions(filename=None):
                     'container_amplitude': float(field[7]),
                     'container_omega': float(field[8]),
                     'number_of_patches': int(field[9]),
-                    'optimal_offset': int(field[10]),
+                    'optimal_offset': float(field[10]),
                     'pos': np.array([float(field[11]), float(field[12]), float(field[13])]),
                     'velocity': np.array([float(field[14]), float(field[15]), float(field[16])]),
                     'omega': np.array([float(field[17]), float(field[18]), float(field[19])]),
@@ -57,14 +57,14 @@ def get_conditions(filename=None):
                 }
                 print(f"Read properties and initial conditions from {filename}.")
             except ValueError:
-                print(f"Wrong format of given file: {filename}. Ignoring the file - using default conds.")
+                raise ValueError(f"Wrong format of given file: '{filename}'. Fix or delete the file then rerun.")
         except FileNotFoundError:
             print(f"Can't find {filename}. Making new with default conds.")
             file = open(filename, "w")
             l1 = (
                 f"g,radius,density,coefficient_of_restitution,mu,gamma_t,container_radius,container_amplitude,"
-                f"container_omega,container_stop_time,number_of_patches,optimal_offset,pos(3),velocity(3),omega(3),"
-                f"time_end,time_warp,refresh_rate\n"
+                f"container_omega,number_of_patches,optimal_offset,pos(3),velocity(3),omega(3),"
+                f"time_end,container_stop_time,time_warp,refresh_rate\n"
             )
             p = conds['pos']
             v = conds['velocity']

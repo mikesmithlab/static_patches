@@ -1,3 +1,8 @@
+from conditions import get_conditions
+from physics import Engine
+from reader import Animator
+from analyser import plot_energy, plot_patches, plot_charges, show_plots
+
 # todo
 # air resistance? linear and/or rotational ---- do calculations
 # tiny tiny bit of randomness in the collision forces (more realistic)?
@@ -16,28 +21,25 @@
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    from conditions import get_conditions
     conds = get_conditions(filename="conds.txt")
-
     # from my_tools import offset_finder
-    # print(offset_finder(conds['number_of_patches']))
+    # conds['optimal_offset'] = offset_finder(conds['number_of_patches'])
+    # print(conds['optimal_offset'])
 
     # todo better way of choosing what to do please? True False commenting out is strange
-    do_physics = False
-    # do_physics = True
+    # do_physics = False
+    do_physics = True
     if do_physics:
         print("doing physics...")
-        from objects import Engine
         Engine(conds).run()
-        print("physics is done - data_dump has been written to")
+        print("physics is done - the data_dump, charges, and patches files have been written to")
     else:
-        print("kept previous physics - data_dump is unchanged")
+        print("kept previous physics - the data_dump, charges, and patches files are unchanged")
 
     do_animate = False
     # do_animate = True
     if do_animate:
         print("animating....")
-        from reader import Animator
         Animator(conds).animate()
 
     do_analysis = False
@@ -46,11 +48,15 @@ if __name__ == '__main__':
         print("analysing....")
         # do_energy_analysis = False
         do_energy_analysis = True
-        # do_patch_analysis = False
-        do_patch_analysis = True
+        do_patch_analysis = False
+        # do_patch_analysis = True
+        # do_charge_analysis = False
+        do_charge_analysis = True
         if do_energy_analysis:
-            from reader import plot_energy
-            plot_energy(do_patch_analysis, conds["time_end"], conds["total_store"])
+            plot_energy(conds["time_end"], conds["total_store"])
         if do_patch_analysis:
-            from reader import plot_patches
             plot_patches(conds["number_of_patches"])
+        if do_charge_analysis:
+            plot_charges(conds["number_of_patches"])
+        if do_energy_analysis or do_patch_analysis or do_charge_analysis:
+            show_plots()
