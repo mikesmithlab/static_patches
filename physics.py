@@ -125,7 +125,9 @@ class Engine:
         self.gamma_t = conds["gamma_t"]  # viscous damping coefficient of the surfaces
         self.contact = False  # todo the only thing contact is used for is graphics. Semi-redundant: patches tracks hits
         self.is_new_collision = True
-        self.decay = np.exp(-0.005 * self.time_step / 2)  # half-life approx 2 mins. (t/2) as its called twice per step
+        decay_constant = -0.01  # approximate decay constant from experimental data. The half life is around 11.5 mins
+        self.decay_to_charge = 0.38 * 1e-9  # from experimental data
+        self.decay = np.exp(decay_constant * self.time_step / 2)  # (t/2) as its called twice per step
 
         self.data_file = open("data_dump", "w")  # todo check whether it is stored in memory
         with open("conds.txt", "r") as defaults:
@@ -161,7 +163,7 @@ class Engine:
         # ----------------
         # charge decay/spreading
         self.p_t.charges_part, self.p_t.charges_cont = charge_decay_function(
-            self.p_t.charges_part, self.p_t.charges_cont, self.decay)
+            self.p_t.charges_part, self.p_t.charges_cont, self.decay, self.decay_to_charge)
         # ----------------
         # distances
         relative_pos = self.p.pos - self.c.container_pos(t)

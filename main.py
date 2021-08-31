@@ -27,8 +27,8 @@ if __name__ == '__main__':
     # print(conds['optimal_offset'])
 
     # todo better way of choosing what to do please? True False commenting out is strange
-    # do_physics = False
-    do_physics = True
+    do_physics = False
+    # do_physics = True
     if do_physics:
         print("doing physics...")
         Engine(conds).run()
@@ -42,8 +42,8 @@ if __name__ == '__main__':
         print("animating....")
         Animator(conds).animate()
 
-    do_analysis = False
-    # do_analysis = True
+    # do_analysis = False
+    do_analysis = True
     if do_analysis:
         print("analysing....")
         # do_energy_analysis = False
