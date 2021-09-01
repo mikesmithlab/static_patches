@@ -19,8 +19,7 @@ from analyser import plot_energy, plot_patches, plot_charges, show_plots
 # instead of v1 + v2 do np.add(v1, v2) or try the v1.add(v2)? check speed
 
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
+def main():
     conds = get_conditions(filename="conds.txt")
     # from my_tools import offset_finder
     # conds['optimal_offset'] = offset_finder(conds['number_of_patches'])
@@ -60,3 +59,8 @@ if __name__ == '__main__':
             plot_charges(conds["number_of_patches"])
         if do_energy_analysis or do_patch_analysis or do_charge_analysis:
             show_plots()
+
+
+# Press the green button in the gutter to run the script.
+if __name__ == '__main__':
+    main()

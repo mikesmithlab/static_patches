@@ -86,20 +86,19 @@ def find_tangent_force(normal_force, normal, surface_velocity, gamma_t, mu):  # 
     return tangent_direction.dot(-min(gamma_t * xi_dot, mu * find_magnitude(normal_force)))
 
 
-def charge_decay_function(charge_part, charge_cont, decay, shift):  # returns the new charges due to decay (to air?)
-    charge_part = charge_part - shift
-    charge_cont = charge_cont - shift
+def charge_decay_function(charge, decay, shift=0):  # returns the new charges due to decay (to air?)
+    charge = charge - shift
     # todo does the charge spread to nearby patches? <-- would be horrible to compute
-    return charge_part.dot(decay) + shift, charge_cont.dot(decay) + shift
+    return charge.dot(decay) + shift
 
 
 def charge_hit_function(patch_charge_part, patch_charge_cont):  # returns the new charges of colliding patches
     # todo:
-    # do previous charges of the patches matter? or just add some constant every collision? ('proper "saturation"')
+    # do previous charges of the patches matter? or just add some constant every collision? ('proper "saturation"'?)
     # does the force matter?
     # does the charge of nearby patches matter?
     # constant that is added needs to change with patch area (work area out once then input it to this function)
-    return patch_charge_part + 1e-13, patch_charge_cont + 1e-13
+    return patch_charge_part + 4e-13, patch_charge_cont - 4e-13
 
 
 def round_sig_figs(x, p):  # credit for this significant figures function https://stackoverflow.com/revisions/59888924/2

@@ -27,59 +27,59 @@ from scipy.optimize import curve_fit
 # # 3. time after shaker
 # # 4. measurement is taken
 # # 5. repeat
-bead1_times_full = np.array([
-    0, 0, 0,  # after 0 is measure
-    28, 60, 17,  # after 17 is measure
-    28, 60, 17,
-    28, 60, 17,
-    28, 60, 17,
-    28, 60, 17,
-    28, 60, 17,
-    28, 65, 17,
-    28, 60, 17,
-    28, 60, 17,
-    28, 60, 17,
-    28, 60, 17,
-    28, 60, 17,
-    28, 60, 17,
-    28, 60, 17,
-    28, 60, 17,
-    # 28, 0, 4 * 60 + 17,
-    # 28, 60, 17
-])
-bead1_times_sum = np.cumsum(bead1_times_full)
-bead1_times = np.zeros(int(np.size(bead1_times_sum) / 3))
-i = -2
-for element in bead1_times_sum:
-    if i % 3 == 0 and i >= 0:
-        bead1_times[int(i / 3)] = element  # every 3rd value
-    i += 1
-bead1_charges = np.array([
-    -0.082,
-    0.169,
-    0.428,
-    0.654,
-    0.836,
-    0.914,
-    1.063,
-    1.192,
-    1.234,
-    1.270,
-    1.274,
-    1.312,
-    1.264,
-    1.316,
-    1.303,
-    1.312,
-    # 1.188,
-    # 1.234
-])
-
-fig_c2 = plt.figure()
-fig_c2.canvas.manager.set_window_title("Charge against time")
-plt.plot(bead1_times, bead1_charges, 'rx')
-plt.xlabel("Real elapsed time/s")
-plt.ylabel("Charge/nC")
+# bead1_times_full = np.array([
+#     0, 0, 0,  # after 0 is measure
+#     28, 60, 17,  # after 17 is measure
+#     28, 60, 17,
+#     28, 60, 17,
+#     28, 60, 17,
+#     28, 60, 17,
+#     28, 60, 17,
+#     28, 65, 17,
+#     28, 60, 17,
+#     28, 60, 17,
+#     28, 60, 17,
+#     28, 60, 17,
+#     28, 60, 17,
+#     28, 60, 17,
+#     28, 60, 17,
+#     28, 60, 17,
+#     # 28, 0, 4 * 60 + 17,
+#     # 28, 60, 17
+# ])
+# bead1_times_sum = np.cumsum(bead1_times_full)
+# bead1_times = np.zeros(int(np.size(bead1_times_sum) / 3))
+# i = -2
+# for element in bead1_times_sum:
+#     if i % 3 == 0 and i >= 0:
+#         bead1_times[int(i / 3)] = element  # every 3rd value
+#     i += 1
+# bead1_charges = np.array([
+#     -0.082,
+#     0.169,
+#     0.428,
+#     0.654,
+#     0.836,
+#     0.914,
+#     1.063,
+#     1.192,
+#     1.234,
+#     1.270,
+#     1.274,
+#     1.312,
+#     1.264,
+#     1.316,
+#     1.303,
+#     1.312,
+#     # 1.188,
+#     # 1.234
+# ])
+#
+# fig_c2 = plt.figure()
+# fig_c2.canvas.manager.set_window_title("Charge against time")
+# plt.plot(bead1_times, bead1_charges, 'rx')
+# plt.xlabel("Real elapsed time/s")
+# plt.ylabel("Charge/nC")
 
 
 # proper timing run ----------------------------------
@@ -172,49 +172,49 @@ plt.ylabel("Charge/nC")
 
 
 # proper timing run ----------------------------------
-# bead1_times_full = np.array([
-#     0, 0, 0,
-#     # 27, 0, 18,
-#     30, 0, 18,
-#     34, 0, 24,
-#     0, 0, 2 * 60,
-#     0, 0, 2 * 60,
-#     0, 0, 24,
-#     # 0, 0, 39,
-#     # 0, 0, 43
-# ])
-# bead1_times_sum = np.cumsum(bead1_times_full)
-# bead1_times = np.zeros(int(np.size(bead1_times_sum) / 3))
-# i = -2
-# for element in bead1_times_sum:
-#     if i % 3 == 0 and i >= 0:
-#         bead1_times[int(i / 3)] = element  # every 3rd value
-#     i += 1
-# bead1_charges = np.array([
-#     # 0.653,
-#     0.632,
-#     0.540,
-#     0.469,
-#     0.412,
-#     0.389,
-#     0.387,
-#     # 0.369,
-#     # 0.442
-# ])
-#
-# opt = curve_fit(lambda t, q, k: (bead1_charges[0] - q) * np.exp(k * t) + q,
-#                 bead1_times, bead1_charges, p0=(0.38, -0.01))[0]
-# offset = opt[0]
-# time_constant = opt[1]
-# print(f"{offset = :.5g}\n{time_constant = :.5g}")
-#
-# fig_c5 = plt.figure()
-# fig_c5.canvas.manager.set_window_title("Charge against time")
-# more_times = np.arange(start=bead1_times[0], stop=bead1_times[-1], step=(bead1_times[-1] - bead1_times[0])/100)
-# plt.plot(bead1_times, bead1_charges, 'rx',
-#          more_times, (bead1_charges[0] - offset) * np.exp(time_constant * more_times) + offset, 'b-')
-# plt.xlabel("Real elapsed time/s")
-# plt.ylabel("Charge/nC")
+bead1_times_full = np.array([
+    0, 0, 0,
+    # 27, 0, 18,
+    30, 0, 18,
+    34, 0, 24,
+    0, 0, 2 * 60,
+    0, 0, 2 * 60,
+    0, 0, 24,
+    # 0, 0, 39,
+    # 0, 0, 43
+])
+bead1_times_sum = np.cumsum(bead1_times_full)
+bead1_times = np.zeros(int(np.size(bead1_times_sum) / 3))
+i = -2
+for element in bead1_times_sum:
+    if i % 3 == 0 and i >= 0:
+        bead1_times[int(i / 3)] = element  # every 3rd value
+    i += 1
+bead1_charges = np.array([
+    # 0.653,
+    0.632,
+    0.540,
+    0.469,
+    0.412,
+    0.389,
+    0.387,
+    # 0.369,
+    # 0.442
+])
+
+opt = curve_fit(lambda t, q, k: (bead1_charges[0] - q) * np.exp(k * t) + q,
+                bead1_times, bead1_charges, p0=(0.38, -0.01))[0]
+offset = opt[0]
+time_constant = opt[1]
+print(f"{offset = :.5g}\n{time_constant = :.5g}")
+
+fig_c5 = plt.figure()
+fig_c5.canvas.manager.set_window_title("Charge against time")
+more_times = np.arange(start=bead1_times[0], stop=bead1_times[-1], step=(bead1_times[-1] - bead1_times[0])/100)
+plt.plot(bead1_times, bead1_charges, 'rx',
+         more_times, (bead1_charges[0] - offset) * np.exp(time_constant * more_times) + offset, 'b-')
+plt.xlabel("Real elapsed time/s")
+plt.ylabel("Charge/nC")
 
 # show plots ----------------------------------
 plt.show()
