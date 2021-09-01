@@ -49,8 +49,16 @@ def my_cross(v1, v2):  # returns cross product of v1 and v2 (for some reason thi
 
 def find_rotation_matrix(new_x, new_z):  # returns rotation matrix to rotate an object into the new coordinates given
     return np.array([new_x, my_cross(new_x, new_z), new_z])
-    # this link laughs in my face
-    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.html
+
+
+def find_in_new_coordinates(a, new_x, new_z):  # returns a in new coordinates given by new_x and new_z
+    # input a is a np.a of vectors, shaped like [n, 3]
+    # credit for this function goes to
+    # https://stackoverflow.com/questions/22081423#22081723
+    a_reshaped = a.reshape((a.shape[0], a.shape[1]))  # todo no idea if this is right, needs testing.
+    # a_reshaped = a.reshape((a.shape[0] * a.shape[1], a.shape[2]))  # original from source
+    return np.dot(find_rotation_matrix(new_x, new_z), a_reshaped.T).T.reshape(a.shape)
+    # return find_rotation_matrix(new_x, new_z).dot(a.reshape((a.shape[0] * a.shape[1], a.shape[2])).T).T.reshape(a.shape)
 
 
 def sphere_points_maker(n, offset):  # returns n points on a unit sphere (roughly) evenly distributed
@@ -64,7 +72,7 @@ def sphere_points_maker(n, offset):  # returns n points on a unit sphere (roughl
 def offset_finder(n):  # finds the best offset (within some precision) for the sphere_point_maker for standard deviation
     best_std = None
     best_offset = None
-    for offset in tqdm(np.arange(0.4, 0.6, 0.00001)):  # offset is in range 0 to 1
+    for offset in tqdm(np.arange(0.4, 0.6, 0.00001)):  # offset is in range 0 to 1, but usually 0.4 to 0.6?
         points = sphere_points_maker(n, offset)
         dists = np.amax(KDTree(points).query(points, k=2)[0], 1)
         standard_deviation = dists.std()
@@ -84,6 +92,26 @@ def find_tangent_force(normal_force, normal, surface_velocity, gamma_t, mu):  # 
         return np.array([0, 0, 0])
     tangent_direction = tangent_surface_velocity.dot(1 / xi_dot)
     return tangent_direction.dot(-min(gamma_t * xi_dot, mu * find_magnitude(normal_force)))
+
+
+def find_electrostatic_forces(charges_part, charges_cont, points_part, tree_cont):  # returns forces on each patch
+    # every patch needs to be matched with every patch
+    # todo minimum distance: at the moment cont radius slightly larger, is this optimal?
+    # todo 8.988e9 from wikipedia Coulomb's constant
+    charge_forces = np.zeros(np.shape(points_part))
+    n_by_3 = np.shape(points_part)  # this is probably not the fastest way of doing it?  # todo
+    # todo vectorise this MOAR!
+    for i in range(n_by_3[0]):  # todo check? also check for speed
+        # magnitudes = (charges_part[i] * charges_cont * 8.988e9) * np.reciprocal(
+        #     tree_cont.query(points_part[i, :], k=n_by_3[0])[0] ** 2)  # todo non-numpy way? which is faster?
+        dists = np.array(tree_cont.query(points_part[i, :], k=n_by_3[0])[0])
+        print(dists)
+        magnitudes = (charges_part[i] * charges_cont * 8.988e9) * np.reciprocal(dists.dot(dists))
+        # todo KDTree query has "workers" for parallel processing! is it worth it here?
+        directions = np.zeros(n_by_3)
+        charge_forces[i, :] = np.sum(directions * magnitudes, 0)  # todo don't put direction and magnitude in memory!
+    # charge_forces is the net force on each individual patch on part
+    return charge_forces
 
 
 def charge_decay_function(charge, decay, shift=0):  # returns the new charges due to decay (to air?)
