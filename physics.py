@@ -8,7 +8,7 @@ from my_tools import find_magnitude, rotate, normalise, find_rotation_matrix, my
 
 class PatchTracker:
     """
-    Finds which patch a collision happens in and stores the patch numbers with the time
+    Finds which patches a collision happens between, then stores their indexes and updates their charges
     """
 
     def __init__(self, n, offset):
@@ -27,13 +27,16 @@ class PatchTracker:
         self.charges_part = np.zeros(n)
         self.charges_cont = np.zeros(n)
 
+        self.decay_constant = -0.01  # approximate decay constant from experimental data. Half life is approx 11.5 mins
+        self.decay_to_charge = 0.38 * 1e-9 / n  # from experimental data????????
+
     def collision_update(self, t, pos, particle_x, particle_z):  # input pos: normalised position relative to container
         # find the indexes of the patches that collided on the particle and container
         part = self.tree.query(find_rotation_matrix(particle_x, particle_z).dot(pos), k=1)[1]
         cont = self.tree.query(pos, k=1)[1]
         # output of query is [distance_to_nearest_point, point_number] so we only care about output 1
 
-        # patch tracking for animation and analysis
+        # patch tracking for animation (and analysis)
         self.patches_file.writelines(f"\n{t}\n{part},{cont}")
 
         # charge tracking for physics
@@ -125,7 +128,7 @@ class Engine:
         self.gamma_t = conds["gamma_t"]  # viscous damping coefficient of the surfaces
         self.contact = False  # todo the only thing contact is used for is graphics. Semi-redundant: patches tracks hits
         self.is_new_collision = True
-        self.decay = np.exp(-0.005 * self.time_step / 2)  # half-life approx 2 mins. (t/2) as its called twice per step
+        self.decay = np.exp(self.p_t.decay_constant * self.time_step / 2)  # (t/2) as its called twice per step
 
         self.data_file = open("data_dump", "w")  # todo check whether it is stored in memory
         with open("conds.txt", "r") as defaults:
@@ -149,7 +152,7 @@ class Engine:
                         f"\n{str(list(round_sig_figs(self.p_t.charges_cont, 5))).replace('[', '').replace(']', '')}"
                     )
                     self.p.x_axis = normalise(self.p.x_axis)
-                    self.p.z_axis = normalise(self.p.z_axis)  # todo does this make them innacurate?
+                    self.p.z_axis = normalise(self.p.z_axis)  # todo does this make them inaccurate?
             else:  # this else exists for speed - the code runs about 10% faster when overlap isn't assigned in update!
                 force, torque, _ = self.update(time, True)
             self.p.integrate_half(self.time_step, force, torque, True)
@@ -160,8 +163,8 @@ class Engine:
     def update(self, t, first_call):  # returns force and torque, also updates distances and patches
         # ----------------
         # charge decay/spreading
-        self.p_t.charges_part, self.p_t.charges_cont = charge_decay_function(
-            self.p_t.charges_part, self.p_t.charges_cont, self.decay)
+        self.p_t.charges_part = charge_decay_function(self.p_t.charges_part, self.decay, shift=self.p_t.decay_to_charge)
+        self.p_t.charges_cont = charge_decay_function(self.p_t.charges_cont, self.decay)
         # ----------------
         # distances
         relative_pos = self.p.pos - self.c.container_pos(t)

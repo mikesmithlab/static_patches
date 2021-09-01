@@ -19,16 +19,15 @@ from analyser import plot_energy, plot_patches, plot_charges, show_plots
 # instead of v1 + v2 do np.add(v1, v2) or try the v1.add(v2)? check speed
 
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
+def main():
     conds = get_conditions(filename="conds.txt")
     # from my_tools import offset_finder
     # conds['optimal_offset'] = offset_finder(conds['number_of_patches'])
     # print(conds['optimal_offset'])
 
     # todo better way of choosing what to do please? True False commenting out is strange
-    # do_physics = False
-    do_physics = True
+    do_physics = False
+    # do_physics = True
     if do_physics:
         print("doing physics...")
         Engine(conds).run()
@@ -42,8 +41,8 @@ if __name__ == '__main__':
         print("animating....")
         Animator(conds).animate()
 
-    do_analysis = False
-    # do_analysis = True
+    # do_analysis = False
+    do_analysis = True
     if do_analysis:
         print("analysing....")
         # do_energy_analysis = False
@@ -60,3 +59,8 @@ if __name__ == '__main__':
             plot_charges(conds["number_of_patches"])
         if do_energy_analysis or do_patch_analysis or do_charge_analysis:
             show_plots()
+
+
+# Press the green button in the gutter to run the script.
+if __name__ == '__main__':
+    main()
