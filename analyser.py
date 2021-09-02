@@ -73,8 +73,8 @@ def plot_charges(n):  # produces a plot of cumulative hits over time for every p
         charge_file = open("charges", "r")
     except FileNotFoundError:
         raise FileNotFoundError("You deleted the charges file or didn't make it with PatchTracker")
-    plot_length = int(1 + (len(charge_file.readlines()) - 1) / 3)  # todo check this is the right number
-    hit_time_list = np.zeros(plot_length)  # todo remove this for the charges, just use actual time!
+    plot_length = int(1 + (len(charge_file.readlines()) - 2) / 3)
+    time_list = np.zeros(plot_length)  # todo remove this for the charges, just use actual time!
     p_charge_list = np.zeros([plot_length, n])
     c_charge_list = np.zeros([plot_length, n])
     charge_file = open("charges", "r")  # todo use "with charge_file as open()"
@@ -83,13 +83,13 @@ def plot_charges(n):  # produces a plot of cumulative hits over time for every p
     for line in charge_file:
         if i >= 0:
             if i % 3 == 0:
-                hit_time_list[int(1 + i / 3)] = float(line)  # store the time of this collision
+                time_list[int(i / 3)] = float(line)  # store the time of this collision
             elif i % 3 == 1:
-                j = int(1 + (i - 1) / 3)
+                j = int((i - 1) / 3)
                 field = line.strip().split(",")
                 p_charge_list[j, :] = np.array(field)
             else:
-                j = int(1 + (i - 2) / 3)
+                j = int((i - 2) / 3)
                 field = line.strip().split(",")
                 c_charge_list[j, :] = np.array(field)
         i += 1
@@ -97,11 +97,11 @@ def plot_charges(n):  # produces a plot of cumulative hits over time for every p
 
     fig_pc = plt.figure()
     fig_pc.canvas.manager.set_window_title("Particle Charge")
-    plt.plot(hit_time_list, p_charge_list, hit_time_list, np.sum(p_charge_list, axis=1))  # include total plot
+    plt.plot(time_list, p_charge_list, time_list, np.sum(p_charge_list, axis=1))  # include total plot
     plt.xlabel("Time/s")
     plt.ylabel("Charge/nC")
     fig_cc = plt.figure()
     fig_cc.canvas.manager.set_window_title("Container Charge")
-    plt.plot(hit_time_list, c_charge_list, hit_time_list, np.sum(c_charge_list, axis=1))  # include total plot
+    plt.plot(time_list, c_charge_list, time_list, np.sum(c_charge_list, axis=1))  # include total plot
     plt.xlabel("Time/s")
     plt.ylabel("Charge/nC")

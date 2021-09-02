@@ -52,13 +52,10 @@ def find_rotation_matrix(new_x, new_z):  # returns rotation matrix to rotate an 
 
 
 def find_in_new_coordinates(a, new_x, new_z):  # returns a in new coordinates given by new_x and new_z
-    # input a is a np.a of vectors, shaped like [n, 3]
+    # input a is a np.array of vectors, shaped like [n, 3]
     # credit for this function goes to
     # https://stackoverflow.com/questions/22081423#22081723
-    a_reshaped = a.reshape((a.shape[0], a.shape[1]))  # todo no idea if this is right, needs testing.
-    # a_reshaped = a.reshape((a.shape[0] * a.shape[1], a.shape[2]))  # original from source
-    return np.dot(find_rotation_matrix(new_x, new_z), a_reshaped.T).T.reshape(a.shape)
-    # return find_rotation_matrix(new_x, new_z).dot(a.reshape((a.shape[0] * a.shape[1], a.shape[2])).T).T.reshape(a.shape)
+    return np.dot(find_rotation_matrix(new_x, new_z), a.reshape((a.shape[0], a.shape[1])).T).T.reshape(a.shape)
 
 
 def sphere_points_maker(n, offset):  # returns n points on a unit sphere (roughly) evenly distributed
@@ -94,39 +91,37 @@ def find_tangent_force(normal_force, normal, surface_velocity, gamma_t, mu):  # 
     return tangent_direction.dot(-min(gamma_t * xi_dot, mu * find_magnitude(normal_force)))
 
 
-def find_electrostatic_forces(charges_part, charges_cont, points_part, tree_cont):  # returns forces on each patch
+def find_electrostatic_forces(charges_part, charges_cont, points_part, points_cont, tree_cont):  # returns forces on each patch
     # every patch needs to be matched with every patch
     # todo minimum distance: at the moment cont radius slightly larger, is this optimal?
     # todo 8.988e9 from wikipedia Coulomb's constant
     charge_forces = np.zeros(np.shape(points_part))
-    n_by_3 = np.shape(points_part)  # this is probably not the fastest way of doing it?  # todo
-    # todo vectorise this MOAR!
-    for i in range(n_by_3[0]):  # todo check? also check for speed
-        # magnitudes = (charges_part[i] * charges_cont * 8.988e9) * np.reciprocal(
-        #     tree_cont.query(points_part[i, :], k=n_by_3[0])[0] ** 2)  # todo non-numpy way? which is faster?
-        dists = np.array(tree_cont.query(points_part[i, :], k=n_by_3[0])[0])
-        print(dists)
-        magnitudes = (charges_part[i] * charges_cont * 8.988e9) * np.reciprocal(dists.dot(dists))
-        # todo KDTree query has "workers" for parallel processing! is it worth it here?
-        directions = np.zeros(n_by_3)
-        charge_forces[i, :] = np.sum(directions * magnitudes, 0)  # todo don't put direction and magnitude in memory!
+    n = np.shape(charge_forces)[0]
+    all_dists = np.array(tree_cont.query(points_part, k=n)[0])
+    # todo vectorise this more?
+    for i in range(n):  # todo check? also check for speed
+        difference = points_cont - points_part[i, :]
+        charge_forces[i, :] = np.sum(
+            difference * np.reciprocal(np.sum(np.square(difference), axis=1) ** 0.5)[:, np.newaxis] *
+            ((charges_part[i] * charges_cont * 8.988e9) * np.reciprocal(np.square(all_dists[:, i])))[:, np.newaxis],
+            axis=0
+        )
     # charge_forces is the net force on each individual patch on part
     return charge_forces
 
 
-def charge_decay_function(charge, decay, shift=0):  # returns the new charges due to decay (to air?)
-    charge = charge - shift
+def charge_decay_function(charge, decay_exponential, shift=0):  # returns the new charges due to decay (to air?)
     # todo does the charge spread to nearby patches? <-- would be horrible to compute
-    return charge.dot(decay) + shift
+    return (charge - shift).dot(decay_exponential) + shift
 
 
-def charge_hit_function(patch_charge_part, patch_charge_cont):  # returns the new charges of colliding patches
+def charge_hit_function(patch_charge_part, patch_charge_cont, charge_per_hit):  # returns the new charges of colliding patches
     # todo:
     # do previous charges of the patches matter? or just add some constant every collision? ('proper "saturation"'?)
     # does the force matter?
     # does the charge of nearby patches matter?
     # constant that is added needs to change with patch area (work area out once then input it to this function)
-    return patch_charge_part + 4e-13, patch_charge_cont - 4e-13
+    return patch_charge_part + charge_per_hit, patch_charge_cont - charge_per_hit
 
 
 def round_sig_figs(x, p):  # credit for this significant figures function https://stackoverflow.com/revisions/59888924/2

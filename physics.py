@@ -15,7 +15,7 @@ class PatchTracker:
     def __init__(self, n, offset, r_part, r_cont):
         self.points = sphere_points_maker(n, offset)  # todo separate n for part and cont?
         self.points_part = self.points.dot(r_part)
-        self.points_cont = self.points.dot(r_cont + r_part * 0.05)  # todo make sure to keep track of the plus 0.0r_part
+        self.points_cont = self.points.dot(r_cont + r_part * 0.01)  # todo make sure to keep track of the plus 0.0r_part
         self.tree = KDTree(self.points)  # input to KDTree for 3D should have dimensions (n, 3)
         self.tree_cont = KDTree(self.points_cont)  # todo uses plus 0.0r_part
 
@@ -29,11 +29,11 @@ class PatchTracker:
             "Format: 3 alternating lines, first is time of collision, second is particle patches, "
             "third is container patches"
         )
-        self.charges_part = np.zeros(n)
-        self.charges_cont = np.zeros(n)
-
+        self.charges_part = np.ones(n) * (0 / n)  # (-1e-9 / n)
+        self.charges_cont = np.ones(n) * (0 / n)  # starting charge
+        self.charge_per_hit = 4e-13
         self.decay_constant = -0.01  # approximate decay constant from experimental data. Half life is approx 11.5 mins
-        self.decay_to_charge = 0.38 * 1e-9 / n  # from experimental data????????
+        self.decay_to_charge = 0  # 0.38 * 1e-9 / n  # from experimental data
 
     def collision_update(self, t, pos, particle_x, particle_z):  # input pos: normalised position relative to container
         # find the indexes of the patches that collided on the particle and container
@@ -46,7 +46,8 @@ class PatchTracker:
 
         # charge tracking for physics
         self.charges_part[part], self.charges_cont[cont] = charge_hit_function(self.charges_part[part],
-                                                                               self.charges_cont[cont])
+                                                                               self.charges_cont[cont],
+                                                                               self.charge_per_hit)
 
     def close(self):
         self.patches_file.close()
@@ -98,6 +99,8 @@ class Particle:
         self.force_multiplier = step / (2 * self.mass)
         self.torque_multiplier = step / (2 * self.moment_of_inertia)
         self.gravity_force = np.array([0, 0, g]).dot(self.mass)
+        self.electrostatic_force = np.array([0, 0, 0])
+        self.electrostatic_torque = np.array([0, 0, 0])
 
     def find_energy(self, overlap):  # returns the energy of the particle
         return (-self.gravity_force.dot(self.pos) +
@@ -163,11 +166,18 @@ class Engine:
             else:  # this else exists for speed - the code runs about 10% faster when overlap isn't assigned in update!
                 force, torque, _ = self.update(time, True)
             self.p.integrate_half(self.time_step, force, torque, True)
-            force, torque, _ = self.update(time, False)
+            # if i % 100 == 0:  # only do electro every 10
+            if False:
+                force, torque, _ = self.update(time, False, electro=True)
+                ratio = find_magnitude(self.p.electrostatic_force) / find_magnitude(force)
+                if ratio >= 1e-2:  # todo this is checking size print, remove soon please and thanks
+                    print(f"{ratio = }")
+            else:
+                force, torque, _ = self.update(time, False)
             self.p.integrate_half(self.time_step, force, torque, False)
         self.close()
 
-    def update(self, t, first_call):  # returns force and torque, also updates distances and patches
+    def update(self, t, first_call, electro=False):  # returns force and torque, also updates distances and patches
         # ----------------
         # charge decay/spreading
         self.p_t.charges_part = charge_decay_function(self.p_t.charges_part, self.decay, shift=self.p_t.decay_to_charge)
@@ -178,20 +188,20 @@ class Engine:
         overlap = self.radii_difference - find_magnitude(relative_pos)
         # ----------------
         # charge forces
-        electrostatic_forces = find_electrostatic_forces(self.p_t.charges_part, self.p_t.charges_cont,
-                                                         find_in_new_coordinates(self.p_t.points_part, self.p.x_axis,
-                                                                                 self.p.z_axis) + relative_pos,
-                                                         self.p_t.tree_cont)
-        # todo move these so we don't use memory to make them?
-        electrostatic_force = np.sum(electrostatic_forces, axis=0)  # todo is axis 0?
-        electrostatic_torque = np.array([0, 0, 0])  # todo turn into overall torque
+        if electro:
+            electrostatic_forces = find_electrostatic_forces(self.p_t.charges_part, self.p_t.charges_cont,
+                                                             find_in_new_coordinates(
+                                                                 self.p_t.points_part, self.p.x_axis, self.p.z_axis
+                                                             ) + relative_pos, self.p_t.points_cont, self.p_t.tree_cont)
+            self.p.electrostatic_force = np.sum(electrostatic_forces, axis=0)  # todo is axis 0?
+            self.p.electrostatic_torque = np.array([0, 0, 0])  # todo turn into overall torque
         # ----------------
         # check for contact
         if overlap >= 0:  # overlap is the distance the particle is inside the container wall (is >= 0 if not inside)
             self.contact = False
             if overlap >= self.p.radius * 0.001:
                 self.is_new_collision = True
-            return self.p.gravity_force + electrostatic_force, np.array([0, 0, 0]), 0  # return 0 overlap so find_energy doesn't need logic
+            return self.p.gravity_force + self.p.electrostatic_force, self.p.electrostatic_torque, 0  # return 0 overlap so find_energy doesn't need logic
         self.contact = True
         normal = normalise(relative_pos)
         # ----------------
@@ -210,9 +220,9 @@ class Engine:
             self.p_t.collision_update(t, normal, self.p.x_axis, self.p.z_axis)
             self.is_new_collision = False
             # make sure the next calls don't update the patches unless it is a new collision
-            # todo this biases the first patch touched (bias direction -avg_angular_velocity)
-        return self.p.gravity_force + normal_contact_force + tangent_contact_force, my_cross(
-            normal.dot(self.p.radius), tangent_contact_force), overlap
+            # todo this biases the first patch touched (bias direction -avg_angular_velocity
+        return self.p.gravity_force + normal_contact_force + tangent_contact_force + self.p.electrostatic_force, my_cross(
+            normal.dot(self.p.radius), tangent_contact_force) + self.p.electrostatic_torque, overlap
 
     def store(self, j, t, overlap):  # stores anything that needs storing this step in the data_dump file
         self.data_file.writelines(
