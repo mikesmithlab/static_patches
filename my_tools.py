@@ -49,8 +49,13 @@ def my_cross(v1, v2):  # returns cross product of v1 and v2 (for some reason thi
 
 def find_rotation_matrix(new_x, new_z):  # returns rotation matrix to rotate an object into the new coordinates given
     return np.array([new_x, my_cross(new_x, new_z), new_z])
-    # this link laughs in my face
-    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.html
+
+
+def find_in_new_coordinates(a, new_x, new_z):  # returns a in new coordinates given by new_x and new_z
+    # input a is a np.array of vectors, shaped like [n, 3]
+    # credit for this function goes to
+    # https://stackoverflow.com/questions/22081423#22081723
+    return np.dot(find_rotation_matrix(new_x, new_z), a.reshape((a.shape[0], a.shape[1])).T).T.reshape(a.shape)
 
 
 def sphere_points_maker(n, offset):  # returns n points on a unit sphere (roughly) evenly distributed
@@ -64,7 +69,7 @@ def sphere_points_maker(n, offset):  # returns n points on a unit sphere (roughl
 def offset_finder(n):  # finds the best offset (within some precision) for the sphere_point_maker for standard deviation
     best_std = None
     best_offset = None
-    for offset in tqdm(np.arange(0.4, 0.6, 0.00001)):  # offset is in range 0 to 1
+    for offset in tqdm(np.arange(0.4, 0.6, 0.00001)):  # offset is in range 0 to 1, but usually 0.4 to 0.6?
         points = sphere_points_maker(n, offset)
         dists = np.amax(KDTree(points).query(points, k=2)[0], 1)
         standard_deviation = dists.std()
@@ -86,19 +91,37 @@ def find_tangent_force(normal_force, normal, surface_velocity, gamma_t, mu):  # 
     return tangent_direction.dot(-min(gamma_t * xi_dot, mu * find_magnitude(normal_force)))
 
 
-def charge_decay_function(charge, decay, shift=0):  # returns the new charges due to decay (to air?)
-    charge = charge - shift
+def find_electrostatic_forces(charges_part, charges_cont, points_part, points_cont, tree_cont):  # returns forces on each patch
+    # every patch needs to be matched with every patch
+    # todo minimum distance: at the moment cont radius slightly larger, is this optimal?
+    # todo 8.988e9 from wikipedia Coulomb's constant
+    charge_forces = np.zeros(np.shape(points_part))
+    n = np.shape(charge_forces)[0]
+    all_dists = np.array(tree_cont.query(points_part, k=n)[0])
+    # todo vectorise this more?
+    for i in range(n):  # todo check? also check for speed
+        difference = points_cont - points_part[i, :]
+        charge_forces[i, :] = np.sum(
+            difference * np.reciprocal(np.sum(np.square(difference), axis=1) ** 0.5)[:, np.newaxis] *
+            ((charges_part[i] * charges_cont * 8.988e9) * np.reciprocal(np.square(all_dists[:, i])))[:, np.newaxis],
+            axis=0
+        )
+    # charge_forces is the net force on each individual patch on part
+    return charge_forces
+
+
+def charge_decay_function(charge, decay_exponential, shift=0):  # returns the new charges due to decay (to air?)
     # todo does the charge spread to nearby patches? <-- would be horrible to compute
-    return charge.dot(decay) + shift
+    return (charge - shift).dot(decay_exponential) + shift
 
 
-def charge_hit_function(patch_charge_part, patch_charge_cont):  # returns the new charges of colliding patches
+def charge_hit_function(patch_charge_part, patch_charge_cont, charge_per_hit):  # returns the new charges of colliding patches
     # todo:
     # do previous charges of the patches matter? or just add some constant every collision? ('proper "saturation"'?)
     # does the force matter?
     # does the charge of nearby patches matter?
     # constant that is added needs to change with patch area (work area out once then input it to this function)
-    return patch_charge_part + 4e-13, patch_charge_cont - 4e-13
+    return patch_charge_part + charge_per_hit, patch_charge_cont - charge_per_hit
 
 
 def round_sig_figs(x, p):  # credit for this significant figures function https://stackoverflow.com/revisions/59888924/2

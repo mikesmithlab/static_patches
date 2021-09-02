@@ -1,10 +1,8 @@
 import numpy as np
 
 
-def get_conditions(filename=None):
-    # if filename is given, conds comes from file (or is written to it if it doesn't exist)
-    # if filename isn't given, conds defaults to the below dictionary
-    conds = {
+def default_conds():
+    return {
         'g': -9.81,
         'radius': 5 / 1000,
         'density': 1000,
@@ -25,9 +23,14 @@ def get_conditions(filename=None):
         'refresh_rate': 60,
     }
 
+
+def get_conditions(filename=None):
     # ---------------------------------------
-    # Don't change anything below this point!
+    # Don't change anything in this function!
     # ---------------------------------------
+    # if filename is given, conds comes from file (or is written to it if it doesn't exist)
+    # if filename isn't given, conds defaults to the dictionary returned by default_conds()
+    conds = default_conds()
 
     if filename is not None:
         try:
@@ -62,8 +65,8 @@ def get_conditions(filename=None):
             print(f"Can't find {filename}. Making new with default conds.")
             file = open(filename, "w")
             l1 = (
-                f"g,radius,density,coefficient_of_restitution,mu,gamma_t,container_radius,container_amplitude,"
-                f"container_omega,number_of_patches,optimal_offset,pos(3),velocity(3),omega(3),"
+                f"g,radius,density,coefficient_of_restitution,mu,gamma_t,container_radius,amplitude,"
+                f"omega,number_of_patches,optimal_offset,pos(3),velocity(3),omega(3),"
                 f"time_end,container_stop_time,time_warp,refresh_rate\n"
             )
             p = conds['pos']
@@ -74,7 +77,7 @@ def get_conditions(filename=None):
                 f"{conds['mu']},{conds['gamma_t']},{conds['container_radius']},{conds['container_amplitude']},"
                 f"{conds['container_omega']},{conds['number_of_patches']},{conds['optimal_offset']},"
                 f"{p[0]},{p[1]},{p[2]},{v[0]},{v[1]},{v[2]},{o[0]},{o[1]},{o[2]},"
-                f"{conds['time_end']},{conds['container_time_end']},{conds['time_warp']},{conds['refresh_rate']}"
+                f"{conds['time_end']},{conds['time_end']},{conds['time_warp']},{conds['refresh_rate']}"
             )
             file.writelines(l1)
             file.writelines(l2)

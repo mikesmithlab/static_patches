@@ -4,14 +4,14 @@ from scipy.optimize import curve_fit
 
 
 # 1st runs after cleaning ----------------------------------
-# bead1_times = np.cumsum(np.array([0, 1, 5, 5, 5]) * 60)
-# bead1_charges = np.array([-0.116, 0.008, 0.277, 0.436, 0.311])
+# bead1_times = np.cumsum(np.a([0, 1, 5, 5, 5]) * 60)
+# bead1_charges = np.a([-0.116, 0.008, 0.277, 0.436, 0.311])
 #
-# bead2_times = np.cumsum(np.array([0, 1, 1, 1, 1, 1]) * 60)
-# bead2_charges = np.array([-1.575, -0.554, -0.081, 0.268, 0.546, 0.743])
+# bead2_times = np.cumsum(np.a([0, 1, 1, 1, 1, 1]) * 60)
+# bead2_charges = np.a([-1.575, -0.554, -0.081, 0.268, 0.546, 0.743])
 #
-# bead3_times = np.cumsum(np.array([0, 1, 1, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1]) * 60)
-# bead3_charges = np.array([-0.469, 0.493, 0.909, 1.267, 1.323, 1.478, 1.506, 1.609, 1.571, 1.665, 1.546, 1.539, 1.232])
+# bead3_times = np.cumsum(np.a([0, 1, 1, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1]) * 60)
+# bead3_charges = np.a([-0.469, 0.493, 0.909, 1.267, 1.323, 1.478, 1.506, 1.609, 1.571, 1.665, 1.546, 1.539, 1.232])
 #
 # fig_c1 = plt.figure()
 # fig_c1.canvas.manager.set_window_title("Charge against time")
@@ -27,7 +27,7 @@ from scipy.optimize import curve_fit
 # # 3. time after shaker
 # # 4. measurement is taken
 # # 5. repeat
-# bead1_times_full = np.array([
+# bead1_times_full = np.a([
 #     0, 0, 0,  # after 0 is measure
 #     28, 60, 17,  # after 17 is measure
 #     28, 60, 17,
@@ -54,7 +54,7 @@ from scipy.optimize import curve_fit
 #     if i % 3 == 0 and i >= 0:
 #         bead1_times[int(i / 3)] = element  # every 3rd value
 #     i += 1
-# bead1_charges = np.array([
+# bead1_charges = np.a([
 #     -0.082,
 #     0.169,
 #     0.428,
@@ -83,7 +83,7 @@ from scipy.optimize import curve_fit
 
 
 # proper timing run ----------------------------------
-# bead1_times_full = np.array([
+# bead1_times_full = np.a([
 #     0, 0, 0,
 #     60 + 37, 60, 25,
 #     31, 60, 24,
@@ -102,7 +102,7 @@ from scipy.optimize import curve_fit
 #     if i % 3 == 0 and i >= 0:
 #         bead1_times[int(i / 3)] = element  # every 3rd value
 #     i += 1
-# bead1_charges = np.array([
+# bead1_charges = np.a([
 #     0.009,
 #     0.226,
 #     0.397,
@@ -125,13 +125,13 @@ from scipy.optimize import curve_fit
 # plt.ylabel("Charge/nC")
 
 # proper timing run ----------------------------------
-# # bead1_times_full = np.array([
+# # bead1_times_full = np.a([
 # #     0, 0, 0,
 # #     27, 0, 18,
 # #     30, 0, 18,
 # #     34, 0, 24
 # # ])
-# bead1_times_full = np.array([
+# bead1_times_full = np.a([
 #     0, 0, 0,
 #     27, 0, 18,
 #     30, 0, 18,
@@ -149,7 +149,7 @@ from scipy.optimize import curve_fit
 #     if i % 3 == 0 and i >= 0:
 #         bead1_times[int(i / 3)] = element  # every 3rd value
 #     i += 1
-# bead1_charges = np.array([
+# bead1_charges = np.a([
 #     0.653,
 #     0.632,
 #     0.540,

@@ -7,7 +7,7 @@ from analyser import plot_energy, plot_patches, plot_charges, show_plots
 # air resistance? linear and/or rotational ---- do calculations
 # tiny tiny bit of randomness in the collision forces (more realistic)?
 # measure all physical parameters:
-# container_amplitude
+# amplitude
 # container_radius
 # density
 # coefficient_of_restitution
@@ -18,6 +18,9 @@ from analyser import plot_energy, plot_patches, plot_charges, show_plots
 # try make everything a self. and see if that's faster than inputting to functions (specifically in particle force calc)
 # instead of v1 + v2 do np.add(v1, v2) or try the v1.add(v2)? check speed
 
+# this link laughs in my face
+# https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.html
+
 
 def main():
     conds = get_conditions(filename="conds.txt")
@@ -26,8 +29,8 @@ def main():
     # print(conds['optimal_offset'])
 
     # todo better way of choosing what to do please? True False commenting out is strange
-    do_physics = False
-    # do_physics = True
+    # do_physics = False
+    do_physics = True
     if do_physics:
         print("doing physics...")
         Engine(conds).run()
@@ -41,8 +44,8 @@ def main():
         print("animating....")
         Animator(conds).animate()
 
-    # do_analysis = False
-    do_analysis = True
+    do_analysis = False
+    # do_analysis = True
     if do_analysis:
         print("analysing....")
         # do_energy_analysis = False
