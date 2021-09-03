@@ -17,7 +17,7 @@ class PatchTracker:
         self.points_part = self.points.dot(r_part)
         self.points_cont = self.points.dot(r_cont + r_part * 0.01)  # todo make sure to keep track of the plus 0.0r_part
         self.tree = KDTree(self.points)  # input to KDTree for 3D should have dimensions (n, 3)
-        self.tree_cont = KDTree(self.points_cont)  # todo uses plus 0.0r_part
+        # self.tree_cont = KDTree(self.points_cont)  # todo uses plus 0.0r_part
 
         self.patches_file = open("patches", "w")
         self.patches_file.writelines(
@@ -29,8 +29,8 @@ class PatchTracker:
             "Format: 3 alternating lines, first is time of collision, second is particle patches, "
             "third is container patches"
         )
-        self.charges_part = np.ones(n) * (0 / n)  # (-1e-9 / n)
-        self.charges_cont = np.ones(n) * (0 / n)  # starting charge
+        self.charges_part = np.ones(n) * (1e-9 / n)  # (-1e-9 / n)
+        self.charges_cont = np.ones(n) * (-1e-9 / n)  # starting charge
         self.charge_per_hit = 4e-13
         self.decay_constant = -0.01  # approximate decay constant from experimental data. Half life is approx 11.5 mins
         self.decay_to_charge = 0  # 0.38 * 1e-9 / n  # from experimental data
@@ -166,12 +166,12 @@ class Engine:
             else:  # this else exists for speed - the code runs about 10% faster when overlap isn't assigned in update!
                 force, torque, _ = self.update(time, True)
             self.p.integrate_half(self.time_step, force, torque, True)
-            # if i % 100 == 0:  # only do electro every 10
-            if False:
+            # if i % 10 == 0:  # only do electro every 10? 100?  # todo?
+            if True:
                 force, torque, _ = self.update(time, False, electro=True)
-                ratio = find_magnitude(self.p.electrostatic_force) / find_magnitude(force)
-                if ratio >= 1e-2:  # todo this is checking size print, remove soon please and thanks
-                    print(f"{ratio = }")
+                # ratio = find_magnitude(self.p.electrostatic_force) / find_magnitude(force)
+                # if ratio >= 1e-2:  # todo this is checking size print, remove soon please and thanks
+                #     print(f"{ratio = }")
             else:
                 force, torque, _ = self.update(time, False)
             self.p.integrate_half(self.time_step, force, torque, False)
@@ -192,8 +192,8 @@ class Engine:
             electrostatic_forces = find_electrostatic_forces(self.p_t.charges_part, self.p_t.charges_cont,
                                                              find_in_new_coordinates(
                                                                  self.p_t.points_part, self.p.x_axis, self.p.z_axis
-                                                             ) + relative_pos, self.p_t.points_cont, self.p_t.tree_cont)
-            self.p.electrostatic_force = np.sum(electrostatic_forces, axis=0)  # todo is axis 0?
+                                                             ) + relative_pos, self.p_t.points_cont)
+            self.p.electrostatic_force = np.sum(electrostatic_forces, axis=0)  # sums over all patches
             self.p.electrostatic_torque = np.array([0, 0, 0])  # todo turn into overall torque
         # ----------------
         # check for contact
