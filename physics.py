@@ -29,25 +29,39 @@ class PatchTracker:
             "Format: 3 alternating lines, first is time of collision, second is particle patches, "
             "third is container patches"
         )
-        self.charges_part = np.ones(n) * (1e-9 / n)  # (-1e-9 / n)
-        self.charges_cont = np.ones(n) * (-1e-9 / n)  # starting charge
+        self.charges_part = np.ones(n) * (1e-7 / n)  # (-1e-9 / n)
+        self.charges_cont = np.ones(n) * (-1e-7 / n)  # starting charge
         self.charge_per_hit = 4e-13
         self.decay_constant = -0.01  # approximate decay constant from experimental data. Half life is approx 11.5 mins
         self.decay_to_charge = 0  # 0.38 * 1e-9 / n  # from experimental data
 
     def collision_update(self, t, pos, particle_x, particle_z):  # input pos: normalised position relative to container
+        # ----------------
         # find the indexes of the patches that collided on the particle and container
         part = self.tree.query(find_rotation_matrix(particle_x, particle_z).dot(pos), k=1)[1]
         cont = self.tree.query(pos, k=1)[1]
-        # output of query is [distance_to_nearest_point, point_number] so we only care about output 1
-
+        # ----------------
         # patch tracking for animation (and analysis)
         self.patches_file.writelines(f"\n{t}\n{part},{cont}")
-
+        # ----------------
         # charge tracking for physics
         self.charges_part[part], self.charges_cont[cont] = charge_hit_function(self.charges_part[part],
                                                                                self.charges_cont[cont],
                                                                                self.charge_per_hit)
+
+    def store_charges(self, time):
+        self.charges_file.writelines(
+            f"\n{time}"
+            f"\n{str(list(round_sig_figs(self.charges_part, 5))).replace('[', '').replace(']', '')}"
+            f"\n{str(list(round_sig_figs(self.charges_cont, 5))).replace('[', '').replace(']', '')}"
+        )
+
+    def find_electrostatics(self, x, z, pos):
+        electrostatic_forces = find_electrostatic_forces(
+            self.charges_part, self.charges_cont,
+            find_in_new_coordinates(self.points_part, x, z) + pos, self.points_cont)
+        # torque = np.sum(np.cross(self.p_t.points_part, electrostatic_forces), axis=0)
+        return np.sum(electrostatic_forces, axis=0), np.zeros([0, 0, 0])
 
     def close(self):
         self.patches_file.close()
@@ -113,7 +127,7 @@ class Particle:
         self.omega = self.omega + torque.dot(self.torque_multiplier)
         if first_call:
             self.pos = self.pos + self.velocity.dot(time_step)
-            angles = self.omega.dot(time_step)
+            angles = self.omega.dot(time_step)  # todo is this faster? I don't think it would be
             self.x_axis = rotate(angles, self.x_axis)
             self.z_axis = rotate(angles, self.z_axis)
 
@@ -156,45 +170,42 @@ class Engine:
                 force, torque, overlap = self.update(time, True)
                 self.store(i, time, overlap)
                 if i % (self.store_interval * 100) == 0:  # store patch charges every 100 store steps
-                    self.p_t.charges_file.writelines(
-                        f"\n{time}"
-                        f"\n{str(list(round_sig_figs(self.p_t.charges_part, 5))).replace('[', '').replace(']', '')}"
-                        f"\n{str(list(round_sig_figs(self.p_t.charges_cont, 5))).replace('[', '').replace(']', '')}"
-                    )
+                    self.p_t.store_charges(time)
                     self.p.x_axis = normalise(self.p.x_axis)
                     self.p.z_axis = normalise(self.p.z_axis)  # todo does this make them inaccurate?
             else:  # this else exists for speed - the code runs about 10% faster when overlap isn't assigned in update!
                 force, torque, _ = self.update(time, True)
             self.p.integrate_half(self.time_step, force, torque, True)
             # if i % 10 == 0:  # only do electro every 10? 100?  # todo?
-            if True:
-                force, torque, _ = self.update(time, False, electro=True)
-                # ratio = find_magnitude(self.p.electrostatic_force) / find_magnitude(force)
-                # if ratio >= 1e-2:  # todo this is checking size print, remove soon please and thanks
-                #     print(f"{ratio = }")
-            else:
-                force, torque, _ = self.update(time, False)
+            #     force, torque, _ = self.update(time, False, electro=True)
+            #     # portion = find_magnitude(self.p.electrostatic_force) / find_magnitude(force)
+            #     # if portion >= 1e-3:
+            #     #     print(f"{portion = }")
+            # else:
+            #     force, torque, _ = self.update(time, False)
+            force, torque, _ = self.update(time, False)
             self.p.integrate_half(self.time_step, force, torque, False)
         self.close()
 
-    def update(self, t, first_call, electro=False):  # returns force and torque, also updates distances and patches
+    def update(self, t, first_call):  # returns force and torque, also updates distances and patches
         # ----------------
         # charge decay/spreading
         self.p_t.charges_part = charge_decay_function(self.p_t.charges_part, self.decay, shift=self.p_t.decay_to_charge)
         self.p_t.charges_cont = charge_decay_function(self.p_t.charges_cont, self.decay)
         # ----------------
         # distances
-        relative_pos = self.p.pos - self.c.container_pos(t)  # todo sometimes it is faster to not make variables? try it
+        relative_pos = self.p.pos - self.c.container_pos(t)
         overlap = self.radii_difference - find_magnitude(relative_pos)
         # ----------------
         # charge forces
-        if electro:
-            electrostatic_forces = find_electrostatic_forces(self.p_t.charges_part, self.p_t.charges_cont,
-                                                             find_in_new_coordinates(
-                                                                 self.p_t.points_part, self.p.x_axis, self.p.z_axis
-                                                             ) + relative_pos, self.p_t.points_cont)
-            self.p.electrostatic_force = np.sum(electrostatic_forces, axis=0)  # sums over all patches
-            self.p.electrostatic_torque = np.array([0, 0, 0])  # todo turn into overall torque
+        electrostatic_forces = find_electrostatic_forces(self.p_t.charges_part, self.p_t.charges_cont,
+                                                         find_in_new_coordinates(
+                                                             self.p_t.points_part, self.p.x_axis, self.p.z_axis
+                                                         ) + relative_pos, self.p_t.points_cont)
+        self.p.electrostatic_force = np.sum(electrostatic_forces, axis=0)  # sums over all patches
+        self.p.electrostatic_torque = np.zeros([0, 0, 0])
+        self.p.electrostatic_force, self.p.electrostatic_torque = self.p_t.find_electrostatics(
+            self.p.x_axis, self.p.z_axis, relative_pos)
         # ----------------
         # check for contact
         if overlap >= 0:  # overlap is the distance the particle is inside the container wall (is >= 0 if not inside)

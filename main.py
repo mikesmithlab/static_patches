@@ -38,8 +38,8 @@ def main():
     else:
         print("kept previous physics - the data_dump, charges, and patches files are unchanged")
 
-    do_animate = False
-    # do_animate = True
+    # do_animate = False
+    do_animate = True
     if do_animate:
         print("animating....")
         Animator(conds).animate()

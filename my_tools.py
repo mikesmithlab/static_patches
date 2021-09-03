@@ -4,18 +4,25 @@ from tqdm import tqdm
 
 
 def q_conjugate(q):  # return the conjugate of a quaternion
-    w, x, y, z = q
-    return w, -x, -y, -z
+    return q[0], -q[1], -q[2], -q[3]
+    # w, x, y, z = q
+    # return w, -x, -y, -z
 
 
 def qq_multiply(q1, q2):  # return the result of quaternion multiplied by quaternion in the order q1 by q2
     w1, x1, y1, z1 = q1
     w2, x2, y2, z2 = q2
-    w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
-    x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
-    y = w1 * y2 + y1 * w2 + z1 * x2 - x1 * z2
-    z = w1 * z2 + z1 * w2 + x1 * y2 - y1 * x2
-    return w, x, y, z
+    return (w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
+            w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+            w1 * y2 + y1 * w2 + z1 * x2 - x1 * z2,
+            w1 * z2 + z1 * w2 + x1 * y2 - y1 * x2)
+    # w1, x1, y1, z1 = q1
+    # w2, x2, y2, z2 = q2
+    # w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
+    # x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
+    # y = w1 * y2 + y1 * w2 + z1 * x2 - x1 * z2
+    # z = w1 * z2 + z1 * w2 + x1 * y2 - y1 * x2
+    # return w, x, y, z
 
 
 def qvq_multiply(rotation_quaternion, vector):  # return vector rotated by rotation_quaternion using qvq' multiplication
@@ -32,7 +39,7 @@ def rotate(rotation, vector):  # returns vector after being rotated by euler ang
         np.cos(rotation_magnitude / 2), *(rotation.dot(np.sin(rotation_magnitude / 2) / rotation_magnitude))], vector))
 
 
-def find_magnitude(vector):  # returns magnitude of vector (very fast magnitude finder for numpy vectors)
+def find_magnitude(vector):  # returns magnitude of vector (very fast magnitude finder for 1D numpy vectors)
     return vector.dot(vector) ** 0.5
 
 
@@ -71,8 +78,7 @@ def offset_finder(n):  # finds the best offset (within some precision) for the s
     best_offset = None
     for offset in tqdm(np.arange(0.4, 0.6, 0.00001)):  # offset is in range 0 to 1, but usually 0.4 to 0.6?
         points = sphere_points_maker(n, offset)
-        dists = np.amax(KDTree(points).query(points, k=2)[0], 1)
-        standard_deviation = dists.std()
+        standard_deviation = np.amax(KDTree(points).query(points, k=2)[0], 1).std()  # todo workers?
         if best_std is None:
             best_offset = offset
             best_std = standard_deviation
@@ -95,19 +101,15 @@ def find_electrostatic_forces(charges_part, charges_cont, points_part, points_co
     # returns the net electrostatic force on each patch
     # todo minimum distance: at the moment cont radius slightly larger, is this optimal?
     # todo 8.988e9 from wikipedia Coulomb's constant
-    # todo "workers=" on query? check for speed and compatability
-    # reciprocal_distances is the reciprocal of every element of the distances,
-    # reciprocal_distances = np.reciprocal(np.array(tree_cont.query(
-    #     points_part, k=np.shape(points_part)[0], workers=4)[0])[:, :, np.newaxis].reshape(
-    #     np.shape(points_part)[0], 1, np.shape(points_part)[0]))
     difference = (
             points_cont[:, :, np.newaxis]
             - points_part[:, :, np.newaxis].reshape((1, np.shape(points_part)[1], np.shape(points_part)[0]))
     )
     reciprocal_distances = np.reciprocal(np.sum(np.square(difference), axis=1) ** 0.5)[:, np.newaxis, :]
+    # reciprocal_distances is the reciprocal of every element of the distances
     # sum((direction) * (magnitude), sum over container patches), then reshape to give force on every patch
     return np.sum(
-        (difference * reciprocal_distances)  # (point differences) * normalising factor = direction
+        (difference * reciprocal_distances)  # (point difference * normalising factor) = direction
         *  # (direction) * (magnitude)
         (
                 (charges_part[:, np.newaxis, np.newaxis].reshape(1, 1, np.shape(points_part)[0])
@@ -118,7 +120,7 @@ def find_electrostatic_forces(charges_part, charges_cont, points_part, points_co
         ), axis=0  # sum over all container patch interactions for each particle patch
     ).reshape(np.shape(points_part)[0], np.shape(points_part)[1])  # final reshape to be (n, 3)
     # --------------------------------
-    # the below code is the similar vectorised code but assigns variables in multiple steps to be more understandable...
+    # the below code is similar vectorised code but assigns variables in multiple steps to be more understandable...
     # however, the code is significantly slower, and uses KDTree for all the distances
     # --------------------------------
     # # shapes:
@@ -160,7 +162,6 @@ def charge_hit_function(patch_charge_part, patch_charge_cont, charge_per_hit):  
 
 
 def round_sig_figs(x, p):  # credit for this significant figures function https://stackoverflow.com/revisions/59888924/2
-    x = np.asarray(x)
-    x_positive = np.where(np.isfinite(x) & (x != 0), np.abs(x), 10 ** (p - 1))
-    mags = 10 ** (p - 1 - np.floor(np.log10(x_positive)))
+    x = np.asarray(x)  # todo can remove this line?
+    mags = 10 ** (p - 1 - np.floor(np.log10(np.where(np.isfinite(x) & (x != 0), np.abs(x), 10 ** (p - 1)))))
     return np.round(x * mags) / mags
