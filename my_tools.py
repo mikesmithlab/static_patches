@@ -91,23 +91,58 @@ def find_tangent_force(normal_force, normal, surface_velocity, gamma_t, mu):  # 
     return tangent_direction.dot(-min(gamma_t * xi_dot, mu * find_magnitude(normal_force)))
 
 
-def find_electrostatic_forces(charges_part, charges_cont, points_part, points_cont, tree_cont):  # returns forces on each patch
-    # every patch needs to be matched with every patch
+def find_electrostatic_forces(charges_part, charges_cont, points_part, points_cont):
+    # returns the net electrostatic force on each patch
     # todo minimum distance: at the moment cont radius slightly larger, is this optimal?
     # todo 8.988e9 from wikipedia Coulomb's constant
-    charge_forces = np.zeros(np.shape(points_part))
-    n = np.shape(charge_forces)[0]
-    all_dists = np.array(tree_cont.query(points_part, k=n)[0])
-    # todo vectorise this more?
-    for i in range(n):  # todo check? also check for speed
-        difference = points_cont - points_part[i, :]
-        charge_forces[i, :] = np.sum(
-            difference * np.reciprocal(np.sum(np.square(difference), axis=1) ** 0.5)[:, np.newaxis] *
-            ((charges_part[i] * charges_cont * 8.988e9) * np.reciprocal(np.square(all_dists[:, i])))[:, np.newaxis],
-            axis=0
-        )
-    # charge_forces is the net force on each individual patch on part
-    return charge_forces
+    # todo "workers=" on query? check for speed and compatability
+    # reciprocal_distances is the reciprocal of every element of the distances,
+    # reciprocal_distances = np.reciprocal(np.array(tree_cont.query(
+    #     points_part, k=np.shape(points_part)[0], workers=4)[0])[:, :, np.newaxis].reshape(
+    #     np.shape(points_part)[0], 1, np.shape(points_part)[0]))
+    difference = (
+            points_cont[:, :, np.newaxis]
+            - points_part[:, :, np.newaxis].reshape((1, np.shape(points_part)[1], np.shape(points_part)[0]))
+    )
+    reciprocal_distances = np.reciprocal(np.sum(np.square(difference), axis=1) ** 0.5)[:, np.newaxis, :]
+    # sum((direction) * (magnitude), sum over container patches), then reshape to give force on every patch
+    return np.sum(
+        (difference * reciprocal_distances)  # (point differences) * normalising factor = direction
+        *  # (direction) * (magnitude)
+        (
+                (charges_part[:, np.newaxis, np.newaxis].reshape(1, 1, np.shape(points_part)[0])
+                 *
+                 charges_cont[:, np.newaxis, np.newaxis] * 8.988e9)  # (Coulomb's constant * q1 * q2)
+                *
+                np.square(reciprocal_distances)  # distance^-2
+        ), axis=0  # sum over all container patch interactions for each particle patch
+    ).reshape(np.shape(points_part)[0], np.shape(points_part)[1])  # final reshape to be (n, 3)
+    # --------------------------------
+    # the below code is the similar vectorised code but assigns variables in multiple steps to be more understandable...
+    # however, the code is significantly slower, and uses KDTree for all the distances
+    # --------------------------------
+    # # shapes:
+    # # coord lists: (n, 3)
+    # # charge lists: (n, )
+    # # charge_forces: (n, 3)
+    # the_shape = np.shape(points_part)
+    # reciprocal_distances = np.reciprocal(np.array(tree_cont.query(
+    #     points_part, k=the_shape[0])[0])[:, :, np.newaxis].reshape(the_shape[0], 1, the_shape[0]))
+    # # (reciprocal_)distances (n, n) --> (n, 1, n)
+    # kqq = (charges_part[:, np.newaxis, np.newaxis].reshape(1, 1, the_shape[0]) *
+    #        charges_cont[:, np.newaxis, np.newaxis] * 8.988e9)
+    # # shape kqq (n, 1, n)
+    # magnitudes = (kqq * np.square(reciprocal_distances))
+    # # shape (n, 1, n)
+    # differences = points_cont[:, :, np.newaxis] - points_part[:, :, np.newaxis].reshape(
+    #     (1, the_shape[1], the_shape[0]))
+    # # difference in position (n, 3, n) with each original patch occupying a slice (dim 2)
+    # # directions = differences * np.reciprocal(np.sum(np.square(differences), axis=1) ** 0.5)[:, np.newaxis, :]
+    # directions = differences * reciprocal_distances
+    # # print(np.shape(directions))
+    # charge_forces = np.sum(directions * magnitudes, axis=0).reshape(the_shape[0], the_shape[1])
+    # # print(np.shape(charge_forces))
+    # return charge_forces  # charge_forces is the net force on each individual patch on part
 
 
 def charge_decay_function(charge, decay_exponential, shift=0):  # returns the new charges due to decay (to air?)
