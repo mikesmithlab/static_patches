@@ -16,9 +16,9 @@ class PatchTracker:
         self.n = n
         self.points = sphere_points_maker(self.n, offset)  # todo separate n for part and cont?
         self.points_part = self.points.dot(r_part)
-        self.points_cont = self.points.dot(r_cont)  # todo make sure to keep track of the plus 0.0r_part
+        self.points_cont = self.points.dot(r_cont)
         self.tree = KDTree(self.points)  # input to KDTree for 3D should have dimensions (n, 3)
-        # self.tree_cont = KDTree(self.points_cont)  # todo uses plus 0.0r_part
+        # self.tree_cont = KDTree(self.points_cont)
 
         self.patches_file = open("patches", "w")
         self.patches_file.writelines(
@@ -36,8 +36,7 @@ class PatchTracker:
     def collision_update(self, t, pos, particle_x, particle_z):  # input pos: normalised position relative to container
         # ----------------
         # find the indexes of the patches that collided on the particle and container
-        part = self.tree.query(find_rotation_matrix(particle_x, particle_z).dot(pos), k=1)[1]
-        cont = self.tree.query(pos, k=1)[1]
+        part, cont = self.tree.query([find_rotation_matrix(particle_x, particle_z).dot(pos), pos], k=1)[1]
         # ----------------
         # patch tracking for animation (and analysis)
         self.patches_file.writelines(f"\n{t}\n{part},{cont}")
@@ -192,21 +191,23 @@ class Engine:
         overlap = self.radii_difference - find_magnitude(relative_pos)
         # ----------------
         # charge forces
-        self.p.electrostatic_force, self.p.electrostatic_torque = self.p_t.find_electrostatics(
-            self.p.x_axis, self.p.z_axis, relative_pos)
+        # if False:
+        if first_call:
+            self.p.electrostatic_force, self.p.electrostatic_torque = self.p_t.find_electrostatics(
+                self.p.x_axis, self.p.z_axis, relative_pos)
         # ----------------
         # check for contact
         if overlap >= 0:  # overlap is the distance the particle is inside the container wall (is >= 0 if not inside)
             if self.contact:
                 self.contact = False  # update contact bool
-                print("----------------")
-                print(f"non-elec = {find_magnitude(self.impulse_non_e)}")
-                print(f"electric = {find_magnitude(self.impulse_e)}")
-                self.impulse_non_e = np.array([0, 0, 0])
-                self.impulse_e = np.array([0, 0, 0])
-            else:
-                self.impulse_non_e = self.impulse_non_e + self.p.gravity_force
-                self.impulse_e = self.impulse_e + self.p.electrostatic_force
+            #     print("----------------")
+            #     print(f"non-elec = {find_magnitude(self.impulse_non_e)}")
+            #     print(f"electric = {find_magnitude(self.impulse_e)}")
+            #     self.impulse_non_e = np.array([0, 0, 0])
+            #     self.impulse_e = np.array([0, 0, 0])
+            # else:
+            #     self.impulse_non_e = self.impulse_non_e + self.p.gravity_force
+            #     self.impulse_e = self.impulse_e + self.p.electrostatic_force
             if overlap >= self.p.radius * 1e-3:
                 # collisions are only counted if the surfaces have previously had a non-negligible distance between them
                 self.is_new_collision = True
@@ -238,7 +239,7 @@ class Engine:
             f"{self.p.z_axis[0]:.5g},{self.p.z_axis[1]:.5g},{self.p.z_axis[2]:.5g},"
             f"{self.c.container_pos(t)[2]:.5g},{self.p.find_energy(overlap)},{self.contact}"
         )  # only store container height! container x and y can come later if needed
-        # todo currently 5 significant figures, could do 4? or even 3?
+        # currently 5 significant figures, could do 4? or even 3?
 
     def close(self):  # ensures files are closed at the end of the physics loop
         self.data_file.close()

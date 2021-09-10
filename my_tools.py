@@ -66,26 +66,26 @@ def offset_finder(n):  # finds the best offset (within some precision) for the s
     best_offset = None
     for offset in tqdm(np.arange(0.4, 0.6, 0.00001)):  # offset is in range 0 to 1, but usually 0.4 to 0.6?
         points = sphere_points_maker(n, offset)
-        standard_deviation = np.amax(KDTree(points).query(points, k=2)[0], 1).std()  # todo workers?
+        standard_deviation = np.amax(KDTree(points).query(points, k=2)[0], 1).std()  # workers=?
         if best_std is None:
             best_offset = offset
             best_std = standard_deviation
         elif best_std > standard_deviation:
             best_offset = offset
             best_std = standard_deviation
-    return best_offset  # todo standard deviation is not what we want, we want area!!!!
+    return best_offset  # standard deviation is not what we want, we want area!!!!
 
 
 def find_tangent_force(gamma_t, mu, normal_force, normal, surface_velocity):  # returns tangent (friction) force
     tangent_surface_velocity = surface_velocity - normal.dot(normal.dot(surface_velocity))
-    xi_dot = find_magnitude(tangent_surface_velocity)  # todo try a "try except" for speed here?
-    if xi_dot == 0:  # precisely zero magnitude tangential surface relative velocity causes divide by 0 error
+    try:
+        return tangent_surface_velocity.dot(
+            -min(gamma_t, mu * find_magnitude(normal_force) / find_magnitude(tangent_surface_velocity)))
+    except ZeroDivisionError:  # precisely zero magnitude tangential surface relative velocity causes divide by 0 error
         return np.array([0, 0, 0])
-    tangent_direction = tangent_surface_velocity.dot(1 / xi_dot)
-    return tangent_direction.dot(-min(gamma_t * xi_dot, mu * find_magnitude(normal_force)))
 
 
 def round_sig_figs(x, p):  # credit for this significant figures function https://stackoverflow.com/revisions/59888924/2
-    x = np.asarray(x)  # todo can remove this line?
+    # x = np.asarray(x)  # can remove this line?
     mags = 10 ** (p - 1 - np.floor(np.log10(np.where(np.isfinite(x) & (x != 0), np.abs(x), 10 ** (p - 1)))))
     return np.round(x * mags) / mags

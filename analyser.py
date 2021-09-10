@@ -30,29 +30,28 @@ def plot_energy(time_end, total_store):  # produces a plot of energy over time a
 
 def plot_patches(n):  # produces a plot of cumulative hits over time for every patch
     try:
-        patch_file = open("patches", "r")
+        with open("patches", "r") as patch_file:
+            plot_length = int(1 + (len(patch_file.readlines()) - 1) / 2)
+            hit_time_list = np.zeros(plot_length)
+            p_patch_hit_list = np.zeros([plot_length, n])
+            c_patch_hit_list = np.zeros([plot_length, n])
+
+        with open("patches", "r") as patch_file:
+            i = -1  # set to -1 to get out of the way of the first line of non-data
+            for line in patch_file:
+                if i >= 0:
+                    if i % 2 == 0:
+                        hit_time_list[int(1 + i / 2)] = float(line)  # store the time of this collision
+                    else:
+                        j = int(1 + (i - 1) / 2)
+                        field = line.strip().split(",")
+                        p_patch_hit_list[j, :] = p_patch_hit_list[j - 1, :]  # cumulative
+                        p_patch_hit_list[j, int(field[0])] += 1  # add one to the number of collisions this patch has
+                        c_patch_hit_list[j, :] = c_patch_hit_list[j - 1, :]
+                        c_patch_hit_list[j, int(field[1])] += 1
+                i += 1
     except FileNotFoundError:
         raise FileNotFoundError("You deleted the patches file or didn't make it with PatchTracker")
-    plot_length = int(1 + (len(patch_file.readlines()) - 1) / 2)  # todo check this is the right number
-    hit_time_list = np.zeros(plot_length)
-    p_patch_hit_list = np.zeros([plot_length, n])
-    c_patch_hit_list = np.zeros([plot_length, n])
-    patch_file = open("patches", "r")
-
-    i = -1  # set to -1 to get out of the way of the first line of non-data
-    for line in patch_file:
-        if i >= 0:
-            if i % 2 == 0:
-                hit_time_list[int(1 + i / 2)] = float(line)  # store the time of this collision
-            else:
-                j = int(1 + (i - 1) / 2)
-                field = line.strip().split(",")
-                p_patch_hit_list[j, :] = p_patch_hit_list[j - 1, :]  # cumulative
-                p_patch_hit_list[j, int(field[0])] += 1  # add one to the number of collisions this patch has
-                c_patch_hit_list[j, :] = c_patch_hit_list[j - 1, :]
-                c_patch_hit_list[j, int(field[1])] += 1
-        i += 1
-    patch_file.close()
 
     fig_p = plt.figure()
     fig_p.canvas.manager.set_window_title("Particle Patch Hits")
@@ -70,30 +69,29 @@ def plot_patches(n):  # produces a plot of cumulative hits over time for every p
 
 def plot_charges(n):  # produces a plot of cumulative hits over time for every patch
     try:
-        charge_file = open("charges", "r")
+        with open("charges", "r") as charge_file:
+            plot_length = int(1 + (len(charge_file.readlines()) - 2) / 3)
+            time_list = np.zeros(plot_length)
+            p_charge_list = np.zeros([plot_length, n])
+            c_charge_list = np.zeros([plot_length, n])
+
+        with open("charges", "r") as charge_file:
+            i = -1  # set to -1 to get out of the way of the first line of non-data
+            for line in charge_file:
+                if i >= 0:
+                    if i % 3 == 0:
+                        time_list[int(i / 3)] = float(line)  # store the time of this collision
+                    elif i % 3 == 1:
+                        j = int((i - 1) / 3)
+                        field = line.strip().split(",")
+                        p_charge_list[j, :] = np.array(field)
+                    else:
+                        j = int((i - 2) / 3)
+                        field = line.strip().split(",")
+                        c_charge_list[j, :] = np.array(field)
+                i += 1
     except FileNotFoundError:
         raise FileNotFoundError("You deleted the charges file or didn't make it with PatchTracker")
-    plot_length = int(1 + (len(charge_file.readlines()) - 2) / 3)
-    time_list = np.zeros(plot_length)  # todo remove this for the charges, just use actual time!
-    p_charge_list = np.zeros([plot_length, n])
-    c_charge_list = np.zeros([plot_length, n])
-    charge_file = open("charges", "r")  # todo use "with charge_file as open()"
-
-    i = -1  # set to -1 to get out of the way of the first line of non-data
-    for line in charge_file:
-        if i >= 0:
-            if i % 3 == 0:
-                time_list[int(i / 3)] = float(line)  # store the time of this collision
-            elif i % 3 == 1:
-                j = int((i - 1) / 3)
-                field = line.strip().split(",")
-                p_charge_list[j, :] = np.array(field)
-            else:
-                j = int((i - 2) / 3)
-                field = line.strip().split(",")
-                c_charge_list[j, :] = np.array(field)
-        i += 1
-    charge_file.close()
 
     fig_pc = plt.figure()
     fig_pc.canvas.manager.set_window_title("Particle Charge")
