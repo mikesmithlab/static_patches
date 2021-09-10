@@ -29,8 +29,8 @@ def main():
     # print(conds['optimal_offset'])
 
     # todo better way of choosing what to do please? True False commenting out is strange
-    # do_physics = False
-    do_physics = True
+    do_physics = False
+    # do_physics = True
     if do_physics:
         print("doing physics...")
         Engine(conds).run()
@@ -38,14 +38,14 @@ def main():
     else:
         print("kept previous physics - the data_dump, charges, and patches files are unchanged")
 
-    # do_animate = False
-    do_animate = True
+    do_animate = False
+    # do_animate = True
     if do_animate:
         print("animating....")
         Animator(conds).animate()
 
-    do_analysis = False
-    # do_analysis = True
+    # do_analysis = False
+    do_analysis = True
     if do_analysis:
         print("analysing....")
         # do_energy_analysis = False
