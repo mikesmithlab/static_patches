@@ -19,4 +19,5 @@ def charge_hit_function(patch_charge_part, patch_charge_cont):  # returns the ne
     # constant that is added needs to change with patch area (work area out once then input it to this function)
 
     # charge_per_hit = 4e-13  # this number needs changing
+    # return patch_charge_part + charge_per_hit, patch_charge_cont - charge_per_hit
     return patch_charge_part + 4e-13, patch_charge_cont - 4e-13

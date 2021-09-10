@@ -13,8 +13,8 @@ def measure_charge():
 
     # ----------------
     # electric field
-    voltage = 1.5 * 1e3
-    plate_separation_m = (16.1 - 8.5) * 1e-2  # distances in cm converted to m
+    voltage = 10 * 1e3
+    plate_separation_m = 1e-1  # distances in cm converted to m
     electric_field = voltage / plate_separation_m
 
     # ----------------
@@ -23,12 +23,13 @@ def measure_charge():
     diameter_px = 915 - 679  # 236 - as long as the camera doesn't move it should stay as 236
     dx_px = np.array([675 - 49])  # change in pixel value for desired measurement
     conversion = diameter_m / diameter_px  # metres per pixel
-    dx_m = dx_px * conversion  # change in position in metres
+    # dx_m = dx_px * conversion  # change in position in metres
+    dx_m = 1e-6  # change in position in metres
 
     # ----------------
     # change in charge
     dq = dx_m * ((mass * g) / (electric_field * length_m))  # change in charge in Coulombs
-    print(f"{list(dq) = }")
+    print(f"{dq = }")
 
 
 def plot_hysteresis():
@@ -48,5 +49,5 @@ def plot_hysteresis():
 
 
 # --------------------------------
-# measure_charge()
-plot_hysteresis()
+measure_charge()
+# plot_hysteresis()

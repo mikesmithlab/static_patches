@@ -7,7 +7,7 @@ def q_conjugate(q):  # return the conjugate of a quaternion
     return q[0], -q[1], -q[2], -q[3]
 
 
-def qq_multiply(q1, q2):  # return the result of quaternion multiplied by quaternion in the order q1 by q2
+def qq_multiply(q1, q2):  # return the result of quaternion multiplication q1 by q2
     return (q1[0] * q2[0] - q1[1] * q2[1] - q1[2] * q2[2] - q1[3] * q2[3],
             q1[0] * q2[1] + q1[1] * q2[0] + q1[2] * q2[3] - q1[3] * q2[2],
             q1[0] * q2[2] + q1[2] * q2[0] + q1[3] * q2[1] - q1[1] * q2[3],
@@ -15,12 +15,12 @@ def qq_multiply(q1, q2):  # return the result of quaternion multiplied by quater
 
 
 def qvq_multiply(rotation_quaternion, vector):  # return vector rotated by rotation_quaternion using qvq' multiplication
-    # the quaternion (rotation_q) should be unitary (aka normalised)
+    # the quaternion (rotation_quaternion) should be unitary (aka normalised)
     return qq_multiply(qq_multiply(rotation_quaternion, [0, *vector]), q_conjugate(rotation_quaternion))[1:]
     # this would output a quaternion but we only want the vector part of it so we have the [1:] at the end
 
 
-def rotate(rotation, vector):  # returns vector after being rotated by euler angles around x y and z (using quaternions)
+def rotate(rotation, vector):  # returns vector after being rotated by angles around x y and z axes (using quaternions)
     rotation_magnitude = find_magnitude(rotation)
     if rotation_magnitude == 0:  # if there isn't a rotation applied, don't rotate!
         return vector
@@ -28,7 +28,7 @@ def rotate(rotation, vector):  # returns vector after being rotated by euler ang
         np.cos(rotation_magnitude / 2), *(rotation.dot(np.sin(rotation_magnitude / 2) / rotation_magnitude))], vector))
 
 
-def find_magnitude(vector):  # returns magnitude of vector (very fast magnitude finder for 1D numpy vectors)
+def find_magnitude(vector):  # returns magnitude of vector (very fast magnitude finder for small 1D numpy arrays)
     return vector.dot(vector) ** 0.5
 
 
@@ -39,7 +39,7 @@ def normalise(vector):  # returns vector with magnitude 1 (vector's directional 
     return vector.dot(1 / magnitude)
 
 
-def my_cross(v1, v2):  # returns cross product of v1 and v2 (for some reason this is a about 20x faster than np.cross!)
+def my_cross(v1, v2):  # returns cross product of v1 and v2 (20x faster than np.cross for small 1D numpy arrays)
     return np.array([v1[1] * v2[2] - v1[2] * v2[1], v1[2] * v2[0] - v1[0] * v2[2], v1[0] * v2[1] - v1[1] * v2[0]])
 
 
@@ -48,9 +48,8 @@ def find_rotation_matrix(new_x, new_z):  # returns rotation matrix to rotate an 
 
 
 def find_in_new_coordinates(a, new_x, new_z):  # returns a in new coordinates given by new_x and new_z
-    # input a is a np.array of vectors, shaped like [n, 3]
-    # credit for this function goes to
-    # https://stackoverflow.com/questions/22081423#22081723
+    # input a is a np.array of vectors, shaped like (n, 3)
+    # credit for this function: https://stackoverflow.com/questions/22081423#22081723
     return np.dot(find_rotation_matrix(new_x, new_z), a.reshape((a.shape[0], a.shape[1])).T).T.reshape(a.shape)
 
 

@@ -30,8 +30,8 @@ class PatchTracker:
             "Format: 3 alternating lines, first is time of collision, second is particle patches, "
             "third is container patches"
         )
-        self.charges_part = np.ones(self.n) * (1e-9 / self.n)  # (-1e-9 / n)
-        self.charges_cont = np.ones(self.n) * (-1e-9 / self.n)  # starting charge
+        self.charges_part = np.ones(self.n) * (0 / self.n)  # (-1e-9 / n)
+        self.charges_cont = np.ones(self.n) * (0 / self.n)  # starting charge
 
     def collision_update(self, t, pos, particle_x, particle_z):  # input pos: normalised position relative to container
         # ----------------
@@ -56,36 +56,16 @@ class PatchTracker:
     def find_electrostatics(self, x, z, pos):  # finds overall electrostatic force and torque on the particle
         rotated_points = find_in_new_coordinates(self.points_part, x, z)
         electrostatic_forces = self.find_electrostatic_forces(rotated_points + pos)
-        # electrostatic_forces = np.zeros(np.shape(self.points_part))
-        # torque = np.sum(np.cross(self.p_t.points_part, electrostatic_forces), axis=0)
         return np.sum(electrostatic_forces, axis=0), np.sum(np.cross(rotated_points, electrostatic_forces), axis=0)
 
     def find_electrostatic_forces(self, points_part):  # returns the net electrostatic force on each patch
-        # todo minimum distance: at the moment cont radius slightly larger, is this optimal?
-        # todo Coulomb's constant: 8.988e9 from wikipedia
-        # todo change the 2 reshapes to be on cont not part so the final reshape isn't needed!
-        difference = (
-                self.points_cont[:, :, np.newaxis]
-                - points_part[:, :, np.newaxis].reshape((1, 3, self.n))
-        )
-        reciprocal_distances = np.reciprocal(np.sum(np.square(difference), axis=1) ** 0.5)[:, np.newaxis, :]
-        # reciprocal_distances is the reciprocal of every element of the distances
-        # sum((direction) * (magnitude), sum over container patches), then reshape to give force on every patch
-        return np.sum(
-            (difference * reciprocal_distances)  # (point difference * normalising factor) = direction
-            *  # (direction) * (magnitude)
-            (
-                    (self.charges_part[:, np.newaxis, np.newaxis].reshape(1, 1, self.n)
-                     *
-                     self.charges_cont[:, np.newaxis, np.newaxis] * 8.988e9)  # (Coulomb's constant * q1 * q2)
-                    *
-                    np.square(reciprocal_distances)  # distance^-2
-            ), axis=0  # sum over all container patch interactions for each particle patch
-        ).reshape(self.n, 3)  # final reshape to be (n, 3)
-
-    def close(self):
-        self.patches_file.close()
-        self.charges_file.close()
+        difference = self.points_cont[:, :, np.newaxis].reshape(1, 3, self.n) - points_part[:, :, np.newaxis]
+        # sum((direction) * (magnitude), sum over container patches) to give force on every patch
+        # distance^-1 appears multiple times in the maths but only once here (for code speed) so it may not be clear
+        return np.sum(difference * (8.99e9 * self.charges_part[:, np.newaxis]
+                                    * self.charges_cont[:, np.newaxis].reshape(1, self.n)
+                                    * np.sum(np.square(difference), axis=1) ** -1.5)[:, np.newaxis, :],
+                      axis=2)  # sum over all container patch interactions for each particle patch
 
 
 class Container:
@@ -142,14 +122,15 @@ class Particle:
                 0.5 * self.spring_constant * overlap ** 2 +
                 0.5 * self.moment_of_inertia * self.omega.dot(self.omega))
 
-    def integrate_half(self, time_step, force, torque, first_call):
+    def integrate_half(self, force, torque, time_step=None):  # update linear and angular velocities in verlet half-step
         self.velocity = self.velocity + force.dot(self.force_multiplier)
         self.omega = self.omega + torque.dot(self.torque_multiplier)
-        if first_call:
+        if time_step is not None:  # update linear and angular positions on the first half-step
             self.pos = self.pos + self.velocity.dot(time_step)
             angles = self.omega.dot(time_step)
-            self.x_axis = rotate(angles, self.x_axis)
-            self.z_axis = rotate(angles, self.z_axis)
+            self.x_axis = normalise(rotate(angles, self.x_axis))
+            self.z_axis = normalise(rotate(angles, self.z_axis))
+            # the axis directions need normalising every so often, not every step! This takes computation time
 
 
 class Engine:
@@ -172,8 +153,8 @@ class Engine:
         self.gamma_t = conds["gamma_t"]  # viscous damping coefficient of the surfaces
         self.contact = False  # todo the only thing contact is used for is graphics. Semi-redundant: patches tracks hits
         self.is_new_collision = True
-        # self.impulse_non_e = np.array([0, 0, 0])
-        # self.impulse_e = np.array([0, 0, 0])
+        self.impulse_non_e = np.array([0, 0, 0])
+        self.impulse_e = np.array([0, 0, 0])
 
         self.data_file = open("data_dump", "w")  # todo check whether it is stored in memory
         with open("conds.txt", "r") as defaults:
@@ -184,21 +165,19 @@ class Engine:
             "container_pos,energy,contact"
         )
 
-    def run(self):  # runs the physics loop then cleans up after itself
+    def run(self):  # runs the physics loop then cleans up open files
         for i in tqdm(range(self.total_steps)):  # tqdm gives a progress bar
             time = i * self.time_step
             if i % self.store_interval == 0:  # store if this is a store step
                 force, torque, overlap = self.update(time, True)
                 self.store(i, time, overlap)
-                if i % (self.store_interval * 100) == 0:  # store patch charges every 100 store steps
+                if i % (self.store_interval * self.p_t.n) == 0:  # store patch charges every n store steps
                     self.p_t.store_charges(time)
-                    self.p.x_axis = normalise(self.p.x_axis)
-                    self.p.z_axis = normalise(self.p.z_axis)  # todo does this make them inaccurate?
             else:  # this else exists for speed - the code runs about 10% faster when overlap isn't assigned in update!
                 force, torque, _ = self.update(time, True)
-            self.p.integrate_half(self.time_step, force, torque, True)
+            self.p.integrate_half(force, torque, time_step=self.time_step)
             force, torque, _ = self.update(time, False)
-            self.p.integrate_half(self.time_step, force, torque, False)
+            self.p.integrate_half(force, torque)
         self.close()
 
     def update(self, t, first_call):  # returns force and torque, also updates distances and patches
@@ -219,16 +198,20 @@ class Engine:
         # check for contact
         if overlap >= 0:  # overlap is the distance the particle is inside the container wall (is >= 0 if not inside)
             if self.contact:
-                self.contact = False
-                # print("----------------")
-                # print(f"non-elec = {find_magnitude(self.impulse_non_e)}")
-                # print(f"electric = {find_magnitude(self.impulse_e)}")
-                # self.impulse_non_e = np.array([0, 0, 0])
-                # self.impulse_e = np.array([0, 0, 0])
-            if overlap >= self.p.radius * 0.001:
-                # collisions are only counted if the surfaces have previously had a non-negligable distance between them
+                self.contact = False  # update contact bool
+                print("----------------")
+                print(f"non-elec = {find_magnitude(self.impulse_non_e)}")
+                print(f"electric = {find_magnitude(self.impulse_e)}")
+                self.impulse_non_e = np.array([0, 0, 0])
+                self.impulse_e = np.array([0, 0, 0])
+            else:
+                self.impulse_non_e = self.impulse_non_e + self.p.gravity_force
+                self.impulse_e = self.impulse_e + self.p.electrostatic_force
+            if overlap >= self.p.radius * 1e-3:
+                # collisions are only counted if the surfaces have previously had a non-negligible distance between them
                 self.is_new_collision = True
-            return self.p.gravity_force + self.p.electrostatic_force, self.p.electrostatic_torque, 0  # return 0 overlap so find_energy doesn't need logic
+            # return 0 overlap so find_energy doesn't need logic
+            return self.p.gravity_force + self.p.electrostatic_force, self.p.electrostatic_torque, 0
         self.contact = True
         normal = normalise(relative_pos)
         # ----------------
@@ -245,11 +228,8 @@ class Engine:
             self.p_t.collision_update(t, normal, self.p.x_axis, self.p.z_axis)
             self.is_new_collision = False
             # make sure the next calls don't update the patches unless it is a new collision
-            # todo this biases the first patch touched (bias direction -avg_angular_velocity
-        # self.impulse_non_e = self.impulse_non_e + self.p.gravity_force + normal_contact_force + tangent_contact_force
-        # self.impulse_e = self.impulse_e + self.p.electrostatic_force
-        return self.p.gravity_force + normal_contact_force + tangent_contact_force + self.p.electrostatic_force, my_cross(
-            normal.dot(self.p.radius), tangent_contact_force) + self.p.electrostatic_torque, overlap
+        return (self.p.gravity_force + normal_contact_force + tangent_contact_force + self.p.electrostatic_force,
+                my_cross(normal.dot(self.p.radius), tangent_contact_force) + self.p.electrostatic_torque, overlap)
 
     def store(self, j, t, overlap):  # stores anything that needs storing this step in the data_dump file
         self.data_file.writelines(
@@ -260,6 +240,7 @@ class Engine:
         )  # only store container height! container x and y can come later if needed
         # todo currently 5 significant figures, could do 4? or even 3?
 
-    def close(self):  # ensures files are closed when they need to be
+    def close(self):  # ensures files are closed at the end of the physics loop
         self.data_file.close()
-        self.p_t.close()
+        self.p_t.patches_file.close()
+        self.p_t.charges_file.close()
