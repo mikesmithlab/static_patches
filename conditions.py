@@ -34,54 +34,53 @@ def get_conditions(filename=None):
 
     if filename is not None:
         try:
-            file = open(filename, "r")
-            try:
-                file.readline()
-                field = file.readline().strip().split(",")
-                conds = {
-                    'g': float(field[0]),
-                    'radius': float(field[1]),
-                    'density': float(field[2]),
-                    'coefficient_of_restitution': float(field[3]),
-                    'mu': float(field[4]),
-                    'gamma_t': float(field[5]),
-                    'container_radius': float(field[6]),
-                    'container_amplitude': float(field[7]),
-                    'container_omega': float(field[8]),
-                    'number_of_patches': int(field[9]),
-                    'optimal_offset': float(field[10]),
-                    'pos': np.array([float(field[11]), float(field[12]), float(field[13])]),
-                    'velocity': np.array([float(field[14]), float(field[15]), float(field[16])]),
-                    'omega': np.array([float(field[17]), float(field[18]), float(field[19])]),
-                    'time_end': float(field[20]),
-                    'container_time_end': float(field[21]),
-                    'time_warp': float(field[22]),
-                    'refresh_rate': float(field[23]),
-                }
-                print(f"Read properties and initial conditions from {filename}.")
-            except ValueError:
-                raise ValueError(f"Wrong format of given file: '{filename}'. Fix or delete the file then rerun.")
+            with open(filename, "r") as file:
+                try:
+                    file.readline()
+                    field = file.readline().strip().split(",")
+                    conds = {
+                        'g': float(field[0]),
+                        'radius': float(field[1]),
+                        'density': float(field[2]),
+                        'coefficient_of_restitution': float(field[3]),
+                        'mu': float(field[4]),
+                        'gamma_t': float(field[5]),
+                        'container_radius': float(field[6]),
+                        'container_amplitude': float(field[7]),
+                        'container_omega': float(field[8]),
+                        'number_of_patches': int(field[9]),
+                        'optimal_offset': float(field[10]),
+                        'pos': np.array([float(field[11]), float(field[12]), float(field[13])]),
+                        'velocity': np.array([float(field[14]), float(field[15]), float(field[16])]),
+                        'omega': np.array([float(field[17]), float(field[18]), float(field[19])]),
+                        'time_end': float(field[20]),
+                        'container_time_end': float(field[21]),
+                        'time_warp': float(field[22]),
+                        'refresh_rate': float(field[23]),
+                    }
+                    print(f"Read properties and initial conditions from '{filename}'.")
+                except ValueError:
+                    raise ValueError(f"Wrong format of given file: '{filename}'. Fix or delete the file then rerun.")
         except FileNotFoundError:
-            print(f"Can't find {filename}. Making new with default conds.")
-            file = open(filename, "w")
-            l1 = (
-                f"g,radius,density,coefficient_of_restitution,mu,gamma_t,container_radius,amplitude,"
-                f"omega,number_of_patches,optimal_offset,pos(3),velocity(3),omega(3),"
-                f"time_end,container_stop_time,time_warp,refresh_rate\n"
-            )
-            p = conds['pos']
-            v = conds['velocity']
-            o = conds['omega']
-            l2 = (
-                f"{conds['g']},{conds['radius']},{conds['density']},{conds['coefficient_of_restitution']},"
-                f"{conds['mu']},{conds['gamma_t']},{conds['container_radius']},{conds['container_amplitude']},"
-                f"{conds['container_omega']},{conds['number_of_patches']},{conds['optimal_offset']},"
-                f"{p[0]},{p[1]},{p[2]},{v[0]},{v[1]},{v[2]},{o[0]},{o[1]},{o[2]},"
-                f"{conds['time_end']},{conds['time_end']},{conds['time_warp']},{conds['refresh_rate']}"
-            )
-            file.writelines(l1)
-            file.writelines(l2)
-        file.close()
+            print(f"Can't find '{filename}'. Making new with default conds.")
+            with open(filename, "w") as file:
+                l1 = (
+                    f"g,radius,density,coefficient_of_restitution,mu,gamma_t,container_radius,amplitude,"
+                    f"omega,number_of_patches,optimal_offset,pos(3),velocity(3),omega(3),"
+                    f"time_end,container_stop_time,time_warp,refresh_rate\n"
+                )
+                p = conds['pos']
+                v = conds['velocity']
+                o = conds['omega']
+                l2 = (
+                    f"{conds['g']},{conds['radius']},{conds['density']},{conds['coefficient_of_restitution']},"
+                    f"{conds['mu']},{conds['gamma_t']},{conds['container_radius']},{conds['container_amplitude']},"
+                    f"{conds['container_omega']},{conds['number_of_patches']},{conds['optimal_offset']},"
+                    f"{p[0]},{p[1]},{p[2]},{v[0]},{v[1]},{v[2]},{o[0]},{o[1]},{o[2]},"
+                    f"{conds['time_end']},{conds['time_end']},{conds['time_warp']},{conds['refresh_rate']}"
+                )
+                file.writelines(l1)
+                file.writelines(l2)
 
     # object properties
     conds['mass'] = conds['density'] * (4 / 3) * np.pi * conds['radius'] ** 3
@@ -94,7 +93,7 @@ def get_conditions(filename=None):
     # timing
     conds['time_step'] = (1 / 50) * np.pi * np.sqrt((conds['mass'] / conds['spring_constant']))
     conds['total_steps'] = int(conds['time_end'] / conds['time_step'])
-    # total_steps = (t_end / t_step) + ((int(t_end / t_step) - (t_end / t_step))) != 0)  # todo round up integer?
+    # total_steps = (t_end / t_step) + ((int(t_end / t_step) - (t_end / t_step))) != 0)  # round up integer?
     conds['store_interval'] = int(conds['time_warp'] / (conds['time_step'] * conds['refresh_rate']))
     conds['total_store'] = int(conds['total_steps'] / conds['store_interval']) + (
             conds['total_steps'] % conds['store_interval'] > 0)  # round up int because of 0th frame

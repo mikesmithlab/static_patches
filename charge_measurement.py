@@ -33,7 +33,7 @@ def measure_charge():
 
 
 def plot_hysteresis():
-    plate_separation = 0.1  # todo check
+    plate_separation = 0.1
     start = 0
     end = 5
     step = 0.25

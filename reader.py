@@ -86,6 +86,8 @@ class Animator:
                 self.finished_patches = True
 
     def animate(self):
+        # ----------------
+        # setting up the scene
         pg.init()
 
         display = (int(1280 * 3 / 4), int(1024 * 3 / 4))  # 1280 x 1024
@@ -93,7 +95,7 @@ class Animator:
         pg.display.set_caption('pyopengl shaker, time = ')
         glMatrixMode(GL_MODELVIEW)
         glClearColor(0.1, 0.1, 0.1, 0.3)
-
+        # --------
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_CULL_FACE)
         glEnable(GL_BLEND)
@@ -102,8 +104,10 @@ class Animator:
         glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
         glShadeModel(GL_SMOOTH)
 
+        # ----------------
+        # camera initial conditions
         camera_radius = 2.25 * self.container_radius
-        camera_theta = np.arccos(0 / camera_radius)  # todo why do i have (0 / radius) here???
+        camera_theta = np.arccos(0 / camera_radius)  # why do i have (0 / radius) here???
         camera_phi = np.arctan(1 / 1)
         look_at = [0, 0, 0]
         up_vector = [0, 0, 1]
@@ -129,14 +133,17 @@ class Animator:
             #         if event.type == pg.MOUSEBUTTONUP:
             #             if event.button == 1:
             #                 pause = False
-            #     pg.time.wait(1)  # todo doesn't detect if another button is pressed/unpressed while paused!
+            #     pg.time.wait(1)  # doesn't detect if another button is pressed/unpressed while paused!
             # todo put "for event in pg.event.get()" in a function then call it during the pause & after "elapsed time"
             elapsed_time = pg.time.get_ticks()
+
+            # ----------------
+            # do camera controls
             for event in pg.event.get():
                 if event.type == pg.QUIT:
                     pg.quit()
                     quit()
-
+                # --------
                 # arrow key press: start rotation
                 if event.type == pg.KEYDOWN:
                     if event.key == pg.K_LEFT or event.key == pg.K_a:
@@ -147,7 +154,7 @@ class Animator:
                         up = True
                     if event.key == pg.K_DOWN or event.key == pg.K_s:
                         down = True
-
+                # --------
                 # arrow key lift: stop rotation
                 if event.type == pg.KEYUP:
                     if event.key == pg.K_LEFT or event.key == pg.K_a:
@@ -158,7 +165,7 @@ class Animator:
                         up = False
                     if event.key == pg.K_DOWN or event.key == pg.K_s:
                         down = False
-
+                # --------
                 # mouse wheel zoom
                 if event.type == pg.MOUSEBUTTONDOWN:
                     if event.button == 4:  # wheel rolled up
@@ -169,17 +176,18 @@ class Animator:
                         # camera_radius += 0.05 * self.container_radius
                     if event.button == 2:  # wheel press
                         camera_radius = 2.25 * self.container_radius
-                    # if event.button == 1:  # todo pause?
+                    # if event.button == 1:
                     #     pause = True
                     # glScaled(0.95, 0.95, 0.95)
                     camera_pos = camera_radius * normalise(camera_pos)
-
+            # --------
             # camera rotation rate modifiers shift and ctrl
             rotate_amount_per_frame = self.refresh_rate * 1e-5 * 2 * np.pi
             if pg.key.get_mods() & pg.KMOD_SHIFT:
                 rotate_amount_per_frame *= 2
             elif pg.key.get_mods() & pg.KMOD_CTRL:
                 rotate_amount_per_frame *= 1 / 8
+            # --------
             # check for all arrow key rotation
             if left:
                 camera_pos = rotate(np.array([0, 0, -rotate_amount_per_frame]), camera_pos)
@@ -196,24 +204,28 @@ class Animator:
                 if find_truth(camera_pos, new_camera_pos):
                     camera_pos = new_camera_pos
 
+            # ----------------
+            # do camera
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)  # clear the screen
             glLoadIdentity()  # new matrix
             gluPerspective(*perspective)
             gluLookAt(*camera_pos, *look_at, *up_vector)
 
+            # ----------------
             # update positions from file
             pos, particle_x, particle_z, container_height, contact = self.update_positions(f)
             c_pos = np.array([0, 0, container_height])
             # gluLookAt(*camera_pos, *pos, *up_vector)  # makes you feel sick, focuses on the particle with the camera
 
+            # ----------------
             # draw all objects
-
+            # --------
             # container back
             self.draw_container(container_height, contact, "back")
-
+            # --------
             # particle
             self.draw_particle(pos)
-
+            # --------
             # patches
             transformation = find_rotation_matrix(particle_x, particle_z).T.dot(self.radius)  # find matrix outside loop
             self.update_patch_hit_list(f)
@@ -226,10 +238,11 @@ class Animator:
                 self.draw_patch_centre_sphere(c_pos + patch.dot(self.container_radius),
                                               find_rgba(self.patch_hit_list[j, 1], m1))
                 j += 1
-
+            # --------
             # container front
             self.draw_container(container_height, contact, "front")
 
+            # ----------------
             # update the screen with the new frame then pause for the appropriate time between frames
             pg.display.flip()
             pg.time.wait(int((1000 / self.refresh_rate) - (pg.time.get_ticks() - elapsed_time)))
@@ -257,7 +270,7 @@ class Animator:
 
         glTranslatef(*pos)
         glColor4f(0.1, 0.9, 0.1, 1)
-        gluSphere(self.sphere_quad, self.radius, 32, 16)  # todo pick appropriate slice and stack numbers, 32 & 16?
+        gluSphere(self.sphere_quad, self.radius, 32, 16)  # pick appropriate slice and stack numbers, 32 & 16?
 
         glPopMatrix()  # restores current matrix
 
@@ -268,19 +281,18 @@ class Animator:
         if front_or_back == "front":
             glCullFace(GL_BACK)
             if contact == "True":
-                rgba = [0.2, 0.4, 0.9, 0.75]
+                glColor4f(0.2, 0.4, 0.9, 0.75)
             else:
-                rgba = [0.2, 0.2, 0.9, 0.75]
+                glColor4f(0.2, 0.2, 0.9, 0.75)
         elif front_or_back == "back":
             glCullFace(GL_FRONT)
             if contact == "True":
-                rgba = [0.1, 0.3, 0.4, 1]
+                glColor4f(0.1, 0.3, 0.4, 1)
             else:
-                rgba = [0.1, 0.1, 0.4, 1]
+                glColor4f(0.1, 0.1, 0.4, 1)
         else:
             raise ValueError("'front' or 'back' please and thanks")
 
-        glColor4f(*rgba)
         glTranslatef(0, 0, height)
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)  # make this container a mesh
         gluSphere(self.sphere_quad, self.container_radius, 32, 16)
