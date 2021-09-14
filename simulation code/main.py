@@ -24,7 +24,7 @@ def main():
     # # find optimal offset for any number of patches
     # from my_tools import offset_finder
     # conds['optimal_offset'] = offset_finder(conds['number_of_patches'])
-    # print(conds['optimal_offset'])
+    # print(f"{conds['optimal_offset'] = }")
 
     do_physics = False
     # do_physics = True
@@ -34,6 +34,8 @@ def main():
         print("physics is done - the data_dump, charges, and patches files have been written to")
     else:
         print("kept previous physics - the data_dump, charges, and patches files are unchanged")
+
+    conds = get_conditions(filename="data_dump")
 
     # do_animate = False
     do_animate = True
