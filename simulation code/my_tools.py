@@ -22,6 +22,13 @@ def qvq_multiply(rotation_quaternion, vector):  # return vector rotated by rotat
 
 def rotate(rotation, vector):  # returns vector after being rotated by angles around x y and z axes (using quaternions)
     rotation_magnitude = find_magnitude(rotation)
+    # todo do a try except here? check speed vs (if magnitude == 0)
+    # try:
+    #     return np.array(qvq_multiply([
+    #         np.cos(rotation_magnitude / 2), *(rotation.dot(np.sin(rotation_magnitude / 2) / rotation_magnitude))],
+    #         vector))
+    # except ZeroDivisionError:
+    #     return vector
     if rotation_magnitude == 0:  # if there isn't a rotation applied, don't rotate!
         return vector
     return np.array(qvq_multiply([
@@ -33,6 +40,11 @@ def find_magnitude(vector):  # returns magnitude of vector (very fast magnitude 
 
 
 def normalise(vector):  # returns vector with magnitude 1 (vector's directional components)
+    # todo do a try except here? check speed vs (if magnitude == 0 or magnitude == 1)
+    # try:
+    #     return vector.dot(1 / find_magnitude(vector))
+    # except ZeroDivisionError:
+    #     return vector
     magnitude = find_magnitude(vector)
     if magnitude == 0 or magnitude == 1:
         return vector

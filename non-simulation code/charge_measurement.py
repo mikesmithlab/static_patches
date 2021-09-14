@@ -8,12 +8,12 @@ def measure_charge():
     # ----------------
     # system properties
     g = 9.81
-    length_m = 0.9  # length of hanging string
+    length_m = 0.95  # length of hanging string
     mass = 0.3 * 1e-3
 
     # ----------------
     # electric field
-    voltage = 10 * 1e3
+    voltage = 10 * 1e3  # todo
     plate_separation_m = 1e-1  # distances in cm converted to m
     electric_field = voltage / plate_separation_m
 

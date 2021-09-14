@@ -20,16 +20,16 @@ class PatchTracker:
         self.tree = KDTree(self.points)  # input to KDTree for 3D should have dimensions (n, 3)
         # self.tree_cont = KDTree(self.points_cont)
 
-        self.patches_file = open("patches", "w")
-        self.patches_file.writelines(
-            "Format: alternating lines, first is time of collision, second is patch indexes of hit"
-        )
+        with open("patches", "w") as patches_file:
+            patches_file.writelines(
+                "Format: alternating lines, first is time of collision, second is patch indexes of hit"
+            )
 
-        self.charges_file = open("charges", "w")
-        self.charges_file.writelines(
-            "Format: 3 alternating lines, first is time of collision, second is particle patches, "
-            "third is container patches"
-        )
+        with open("charges", "w") as charges_file:
+            charges_file.writelines(
+                "Format: 3 alternating lines, first is time of collision, second is particle patches, "
+                "third is container patches"
+            )
         self.charges_part = np.ones(self.n) * (0 / self.n)  # (-1e-9 / n)
         self.charges_cont = np.ones(self.n) * (0 / self.n)  # starting charge
 
@@ -39,18 +39,20 @@ class PatchTracker:
         part, cont = self.tree.query([find_rotation_matrix(particle_x, particle_z).dot(pos), pos], k=1)[1]
         # ----------------
         # patch tracking for animation (and analysis)
-        self.patches_file.writelines(f"\n{t}\n{part},{cont}")
+        with open("patches", "a") as patches_file:
+            patches_file.writelines(f"\n{t}\n{part},{cont}")
         # ----------------
         # charge tracking for physics
         self.charges_part[part], self.charges_cont[cont] = charge_hit_function(self.charges_part[part],
                                                                                self.charges_cont[cont])
 
     def store_charges(self, time):
-        self.charges_file.writelines(
-            f"\n{time}"
-            f"\n{str(list(round_sig_figs(self.charges_part, 5))).replace('[', '').replace(']', '')}"
-            f"\n{str(list(round_sig_figs(self.charges_cont, 5))).replace('[', '').replace(']', '')}"
-        )
+        with open("charges", "a") as charges_file:
+            charges_file.writelines(
+                f"\n{time}"
+                f"\n{str(list(round_sig_figs(self.charges_part, 5))).replace('[', '').replace(']', '')}"
+                f"\n{str(list(round_sig_figs(self.charges_cont, 5))).replace('[', '').replace(']', '')}"
+            )
 
     def find_electrostatics(self, x, z, pos):  # finds overall electrostatic force and torque on the particle
         rotated_points = find_in_new_coordinates(self.points_part, x, z)
@@ -155,16 +157,16 @@ class Engine:
         self.impulse_non_e = np.array([0, 0, 0])
         self.impulse_e = np.array([0, 0, 0])
 
-        self.data_file = open("data_dump", "w")  # todo check whether it is stored in memory
-        with open("conds.txt", "r") as defaults:
-            self.data_file.writelines(defaults.read())
-        self.data_file.writelines(
-            "\n(end of)iteration,time,pos_x,pos_y,pos_z,"
-            "x_axis_x,x_axis_y,x_axis_z,z_axis_x,z_axis_y,z_axis_z,"
-            "container_pos,energy,contact"
-        )
+        with open("data_dump", "w") as data_file:
+            with open("conds.txt", "r") as conds_file:
+                data_file.writelines(conds_file.read())
+            data_file.writelines(
+                "\n(end of)iteration,time,pos_x,pos_y,pos_z,"
+                "x_axis_x,x_axis_y,x_axis_z,z_axis_x,z_axis_y,z_axis_z,"
+                "container_pos,energy,contact"
+            )
 
-    def run(self):  # runs the physics loop then cleans up open files
+    def run(self):  # runs the physics loop
         for i in tqdm(range(self.total_steps)):  # tqdm gives a progress bar
             time = i * self.time_step
             if i % self.store_interval == 0:  # store if this is a store step
@@ -177,7 +179,6 @@ class Engine:
             self.p.integrate_half(force, torque, time_step=self.time_step)
             force, torque, _ = self.update(time, False)
             self.p.integrate_half(force, torque)
-        self.close()
 
     def update(self, t, first_call):  # returns force and torque, also updates distances and patches
         # ----------------
@@ -191,8 +192,8 @@ class Engine:
         overlap = self.radii_difference - find_magnitude(relative_pos)
         # ----------------
         # charge forces
-        # if False:
-        if first_call:
+        if False:
+        # if first_call:  # todo remove? slows down but increases accuracy on electrostatics
             self.p.electrostatic_force, self.p.electrostatic_torque = self.p_t.find_electrostatics(
                 self.p.x_axis, self.p.z_axis, relative_pos)
         # ----------------
@@ -233,15 +234,11 @@ class Engine:
                 my_cross(normal.dot(self.p.radius), tangent_contact_force) + self.p.electrostatic_torque, overlap)
 
     def store(self, j, t, overlap):  # stores anything that needs storing this step in the data_dump file
-        self.data_file.writelines(
-            f"\n{j},{t},{self.p.pos[0]:.5g},{self.p.pos[1]:.5g},{self.p.pos[2]:.5g},"
-            f"{self.p.x_axis[0]:.5g},{self.p.x_axis[1]:.5g},{self.p.x_axis[2]:.5g},"
-            f"{self.p.z_axis[0]:.5g},{self.p.z_axis[1]:.5g},{self.p.z_axis[2]:.5g},"
-            f"{self.c.container_pos(t)[2]:.5g},{self.p.find_energy(overlap)},{self.contact}"
-        )  # only store container height! container x and y can come later if needed
-        # currently 5 significant figures, could do 4? or even 3?
-
-    def close(self):  # ensures files are closed at the end of the physics loop
-        self.data_file.close()
-        self.p_t.patches_file.close()
-        self.p_t.charges_file.close()
+        with open("data_dump", "a") as data_file:
+            data_file.writelines(
+                f"\n{j},{t},{self.p.pos[0]:.5g},{self.p.pos[1]:.5g},{self.p.pos[2]:.5g},"
+                f"{self.p.x_axis[0]:.5g},{self.p.x_axis[1]:.5g},{self.p.x_axis[2]:.5g},"
+                f"{self.p.z_axis[0]:.5g},{self.p.z_axis[1]:.5g},{self.p.z_axis[2]:.5g},"
+                f"{self.c.container_pos(t)[2]:.5g},{self.p.find_energy(overlap)},{self.contact}"
+            )  # only store container height! container x and y can come later if needed
+            # currently 5 significant figures, could do 4? or even 3?

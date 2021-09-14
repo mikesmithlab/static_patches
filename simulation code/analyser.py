@@ -10,16 +10,14 @@ def plot_energy(time_end, total_store):  # produces a plot of energy over time a
     time_list = np.linspace(0, time_end, num=total_store)
     energy_list = np.zeros(np.shape(time_list))
     try:
-        data_file = open("data_dump", "r")
+        with open("data_dump", "r") as data_file:
+            i = -3  # set to -3 to get out of the way of the first few lines of non-data
+            for line in data_file:
+                if i >= 0:
+                    energy_list[i] = float(line.strip().split(",")[12])  # read energy from this line and store it
+                i += 1
     except FileNotFoundError:
         raise FileNotFoundError("You deleted the data_dump file or didn't make it with Engine")
-
-    i = -3  # set to -3 to get out of the way of the first few lines of non-data
-    for line in data_file:
-        if i >= 0:
-            energy_list[i] = float(line.strip().split(",")[12])  # read energy from this line and store it
-        i += 1
-    data_file.close()
 
     fig_e = plt.figure()
     fig_e.canvas.manager.set_window_title("Energy Plot")
