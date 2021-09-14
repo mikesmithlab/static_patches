@@ -172,7 +172,7 @@ class Engine:
             if i % self.store_interval == 0:  # store if this is a store step
                 force, torque, overlap = self.update(time, True)
                 self.store(i, time, overlap)
-                if i % (self.store_interval * self.p_t.n) == 0:  # store patch charges every n store steps
+                if i % (self.store_interval * 10) == 0:  # store patch charges every n store steps  # todo ???
                     self.p_t.store_charges(time)
             else:  # this else exists for speed - the code runs about 10% faster when overlap isn't assigned in update!
                 force, torque, _ = self.update(time, True)

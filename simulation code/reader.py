@@ -37,27 +37,38 @@ class Animator:
         self.refresh_rate = conds["refresh_rate"]
 
         try:
-            self.data_file = open("data_dump", "r")
+            open("data_dump", "r")
         except FileNotFoundError:
             raise FileNotFoundError("You deleted the data_dump file or didn't make it with Engine. Animation stopped.")
         try:
-            self.patch_file = open("patches", "r")
+            open("patches", "r")
             self.finished_patches = False
         except FileNotFoundError:
             print("You deleted the patches file or didn't make it with PatchTracker. Patches won't have colours")
             self.finished_patches = True
+        try:
+            open("charges", "r")
+            self.finished_charges = False
+        except FileNotFoundError:
+            print("You deleted the charges file or didn't make it with PatchTracker. Patches won't have colours")
+            self.finished_charges = True
 
         self.sphere_quad = gluNewQuadric()
-        self.patch_hit_list = np.zeros([n, 2])
-        self.next_hit_time = 0
+
         self.patch_points = sphere_points_maker(n, conds["optimal_offset"])
 
-    def update_positions(self, f):  # returns animation data from line f of data_dump
-        if f == 0:
-            self.data_file = open("data_dump", "r")
-            for n in range(3):  # get out of the way of the first few lines of non-data
-                self.data_file.readline()
-        field = self.data_file.readline().strip().split(",")
+        self.patch_hit_list = np.zeros([n, 2])
+        self.patch_charge_list = np.zeros([n, 2])
+        self.data_file_line = 3  # non-zero to pass over the first few lines of non-data
+        self.patch_file_line = 1
+        self.charge_file_line = 1
+
+    def update_positions(self):  # returns animation data from line f of data_dump
+        with open("data_dump", "r") as data_file:
+            for _ in range(self.data_file_line):  # skip past any already read line
+                data_file.readline()
+            field = data_file.readline().strip().split(",")
+        self.data_file_line += 1
         time_two_dp = "{:.2f}".format(float(field[1]))
         pg.display.set_caption(f"pyopengl shaker, time = {time_two_dp}s")
         return np.array([float(field[2]), float(field[3]), float(field[4])]), np.array(
@@ -72,18 +83,33 @@ class Animator:
     def update_patch_hit_list(self, f):  # input f is the frame number
         if self.finished_patches:
             return
-        if f == 0:
-            self.patch_file = open("patches", "r")
-            self.patch_file.readline()  # get out of the way of the first line of non-data
-            self.next_hit_time = float(self.patch_file.readline())
-        if self.next_hit_time <= f * self.time_between_frames:  # if animation time is past the next collision time
-            field = self.patch_file.readline().strip().split(",")
-            for i in [0, 1]:  # for particle and container
-                self.patch_hit_list[int(field[i]), i] += 1  # +1 to number of collisions for this patch
-            try:
-                self.next_hit_time = float(self.patch_file.readline())
-            except ValueError:
-                self.finished_patches = True
+        with open("patches", "r") as patch_file:
+            for _ in range(self.patch_file_line):  # skip past any already read line
+                patch_file.readline()
+            if float(patch_file.readline()) <= f * self.time_between_frames:  # if next time <= animation time
+                field = patch_file.readline().strip().split(",")
+                for i in [0, 1]:  # for particle and container
+                    self.patch_hit_list[int(field[i]), i] += 1  # +1 to number of collisions for this patch
+                try:
+                    float(patch_file.readline())
+                except ValueError:  # todo better catch than "try except"? Like "if empty"?
+                    self.finished_patches = True
+                self.patch_file_line += 2
+
+    def update_charges_list(self, f):
+        if self.finished_charges:
+            return
+        with open("charges", "r") as charge_file:
+            for _ in range(self.charge_file_line):  # skip past any already read line
+                charge_file.readline()
+            if float(charge_file.readline()) <= f * self.time_between_frames:  # if next time <= animation time
+                for i in [0, 1]:  # for particle and container
+                    self.patch_charge_list[:, i] = np.array(charge_file.readline().strip().split(","))  # set charges
+                try:
+                    float(charge_file.readline())
+                except ValueError:  # todo better catch than "try except"? Like "if empty"?
+                    self.finished_charges = True
+                self.charge_file_line += 3
 
     def animate(self):
         # ----------------
@@ -213,8 +239,7 @@ class Animator:
 
             # ----------------
             # update positions from file
-            pos, particle_x, particle_z, container_height, contact = self.update_positions(f)
-            c_pos = np.array([0, 0, container_height])
+            pos, particle_x, particle_z, container_height, contact = self.update_positions()
             # gluLookAt(*camera_pos, *pos, *up_vector)  # makes you feel sick, focuses on the particle with the camera
 
             # ----------------
@@ -226,18 +251,17 @@ class Animator:
             # particle
             self.draw_particle(pos)
             # --------
-            # patches
-            transformation = find_rotation_matrix(particle_x, particle_z).T.dot(self.radius)  # find matrix outside loop
-            self.update_patch_hit_list(f)
-            m0 = np.amax(self.patch_hit_list[:, 0])
-            m1 = np.amax(self.patch_hit_list[:, 1])
-            j = 0
-            for patch in self.patch_points:  # draw both particle and container patches for every patch
-                self.draw_patch_centre_sphere(pos + transformation.dot(patch),
-                                              find_rgba(self.patch_hit_list[j, 0], m0))
-                self.draw_patch_centre_sphere(c_pos + patch.dot(self.container_radius),
-                                              find_rgba(self.patch_hit_list[j, 1], m1))
-                j += 1
+            # charges/patches
+            # charges = False
+            charges = True
+            if charges:
+                self.update_charges_list(f)
+                self.draw_patch_centre_spheres(pos, np.array([0, 0, container_height]), self.patch_charge_list,
+                                               find_rotation_matrix(particle_x, particle_z).T.dot(self.radius))
+            else:
+                self.update_patch_hit_list(f)
+                self.draw_patch_centre_spheres(pos, np.array([0, 0, container_height]), self.patch_hit_list,
+                                               find_rotation_matrix(particle_x, particle_z).T.dot(self.radius))
             # --------
             # container front
             self.draw_container(container_height, contact, "front")
@@ -246,6 +270,17 @@ class Animator:
             # update the screen with the new frame then pause for the appropriate time between frames
             pg.display.flip()
             pg.time.wait(int((1000 / self.refresh_rate) - (pg.time.get_ticks() - elapsed_time)))
+
+    def draw_patch_centre_spheres(self, pos, c_pos, hits_or_charges, transformation):
+        m0 = np.amax(hits_or_charges[:, 0])
+        m1 = np.amax(hits_or_charges[:, 1])
+        j = 0
+        for patch in self.patch_points:  # draw both particle and container patches for every patch
+            self.draw_patch_centre_sphere(pos + transformation.dot(patch),
+                                          find_rgba(hits_or_charges[j, 0], m0))
+            self.draw_patch_centre_sphere(c_pos + patch.dot(self.container_radius),
+                                          find_rgba(hits_or_charges[j, 1], m1))
+            j += 1
 
     def draw_particle_lump(self, pos, one_or_two, rgba):  # draws a lump (designed to be one on the + & - of each axis)
         glPushMatrix()  # saves current matrix
