@@ -7,7 +7,8 @@ from OpenGL.GLU import *
 from my_tools import rotate, normalise, find_rotation_matrix, my_cross, sphere_points_maker
 
 
-def find_truth(o, n):  # logic for camera with inputs as old and new positions  # todo can be done a lot better
+def find_truth(o, n):  # logic for camera with inputs as old and new positions. Far from optimal method
+    # if (n[0] > 0 and o[0] > 0) or (n[0] < 0 and o[0] < 0) or (n[1] > 0 and o[1]) > 0 or (n[0] < 0 and o[0] < 0):
     if (n[0] > 0 and o[0] > 0) or (n[0] < 0 and o[0] < 0) or n[1] > 0 and o[1] > 0 or (n[0] < 0 and o[0] < 0):
         return True
     return False
@@ -36,39 +37,55 @@ class Animator:
         self.time_between_frames = conds["store_interval"] * conds["time_step"]
         self.refresh_rate = conds["refresh_rate"]
 
+        # --------
+        # data file
         try:
-            open("data_dump", "r")
+            self.data_file = open("data_dump", "r")
         except FileNotFoundError:
             raise FileNotFoundError("You deleted the data_dump file or didn't make it with Engine. Animation stopped.")
+        else:
+            for _ in range(3):  # pass over the first line(/s) of non-data
+                self.data_file.readline()
+        # --------
+        # patch hit file
         try:
-            open("patches", "r")
-            self.finished_patches = False
+            self.patch_file = open("patches", "r")
+            for _ in range(1):  # pass over the first line(/s) of non-data
+                self.patch_file.readline()
+            self.next_hit_time = float(self.patch_file.readline())
         except FileNotFoundError:
             print("You deleted the patches file or didn't make it with PatchTracker. Patches won't have colours")
             self.finished_patches = True
+        except ValueError:
+            self.finished_patches = True
+            print("empty patches file!")
+        else:
+            self.finished_patches = False
+
+        # --------
+        # charges file
         try:
-            open("charges", "r")
-            self.finished_charges = False
+            self.charge_file = open("charges", "r")
+            for _ in range(1):  # pass over the first line(/s) of non-data
+                self.charge_file.readline()
+            self.next_charge_store_time = float(self.charge_file.readline())
         except FileNotFoundError:
             print("You deleted the charges file or didn't make it with PatchTracker. Patches won't have colours")
             self.finished_charges = True
+        except ValueError:
+            self.finished_charges = True
+            print("empty charges file!")
+        else:
+            self.finished_charges = False
 
         self.sphere_quad = gluNewQuadric()
 
         self.patch_points = sphere_points_maker(n, conds["optimal_offset"])
-
         self.patch_hit_list = np.zeros([n, 2])
         self.patch_charge_list = np.zeros([n, 2])
-        self.data_file_line = 3  # non-zero to pass over the first few lines of non-data
-        self.patch_file_line = 1
-        self.charge_file_line = 1
 
     def update_positions(self):  # returns animation data from line f of data_dump
-        with open("data_dump", "r") as data_file:
-            for _ in range(self.data_file_line):  # skip past any already read line
-                data_file.readline()
-            field = data_file.readline().strip().split(",")
-        self.data_file_line += 1
+        field = self.data_file.readline().strip().split(",")
         time_two_dp = "{:.2f}".format(float(field[1]))
         pg.display.set_caption(f"pyopengl shaker, time = {time_two_dp}s")
         return np.array([float(field[2]), float(field[3]), float(field[4])]), np.array(
@@ -83,33 +100,25 @@ class Animator:
     def update_patch_hit_list(self, f):  # input f is the frame number
         if self.finished_patches:
             return
-        with open("patches", "r") as patch_file:
-            for _ in range(self.patch_file_line):  # skip past any already read line
-                patch_file.readline()
-            if float(patch_file.readline()) <= f * self.time_between_frames:  # if next time <= animation time
-                field = patch_file.readline().strip().split(",")
-                for i in [0, 1]:  # for particle and container
-                    self.patch_hit_list[int(field[i]), i] += 1  # +1 to number of collisions for this patch
-                try:
-                    float(patch_file.readline())
-                except ValueError:  # todo better catch than "try except"? Like "if empty"?
-                    self.finished_patches = True
-                self.patch_file_line += 2
+        if self.next_hit_time <= f * self.time_between_frames:  # if next time <= animation time
+            field = self.patch_file.readline().strip().split(",")
+            for i in [0, 1]:  # for particle and container
+                self.patch_hit_list[int(field[i]), i] += 1  # +1 to number of collisions for this patch
+            try:
+                self.next_hit_time = float(self.patch_file.readline())
+            except ValueError:
+                self.finished_patches = True
 
     def update_charges_list(self, f):
         if self.finished_charges:
             return
-        with open("charges", "r") as charge_file:
-            for _ in range(self.charge_file_line):  # skip past any already read line
-                charge_file.readline()
-            if float(charge_file.readline()) <= f * self.time_between_frames:  # if next time <= animation time
-                for i in [0, 1]:  # for particle and container
-                    self.patch_charge_list[:, i] = np.array(charge_file.readline().strip().split(","))  # set charges
-                try:
-                    float(charge_file.readline())
-                except ValueError:  # todo better catch than "try except"? Like "if empty"?
-                    self.finished_charges = True
-                self.charge_file_line += 3
+        if self.next_charge_store_time <= f * self.time_between_frames:  # if next time <= animation time
+            for i in [0, 1]:  # for particle and container
+                self.patch_charge_list[:, i] = np.array(self.charge_file.readline().strip().split(","))  # set charges
+            try:
+                self.next_charge_store_time = float(self.charge_file.readline())
+            except ValueError:
+                self.finished_charges = True
 
     def animate(self):
         # ----------------
@@ -121,7 +130,6 @@ class Animator:
         pg.display.set_caption('pyopengl shaker, time = ')
         glMatrixMode(GL_MODELVIEW)
         glClearColor(0.1, 0.1, 0.1, 0.3)
-        # --------
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_CULL_FACE)
         glEnable(GL_BLEND)
@@ -130,108 +138,29 @@ class Animator:
         glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
         glShadeModel(GL_SMOOTH)
 
-        # ----------------
+        # --------
         # camera initial conditions
         camera_radius = 2.25 * self.container_radius
-        camera_theta = np.arccos(0 / camera_radius)  # why do i have (0 / radius) here???
-        camera_phi = np.arctan(1 / 1)
+        camera_theta = np.arccos(0)
+        camera_phi = np.arctan(1)
         look_at = [0, 0, 0]
         up_vector = [0, 0, 1]
-        # for opengl, x is across the screen, y is up the screen, z is into the screen. For me, z is up not into.
         camera_pos = camera_radius * np.array([
             np.cos(camera_phi) * np.sin(camera_theta),
             np.sin(camera_phi) * np.sin(camera_theta),
             np.cos(camera_theta)])
         perspective = 60, (display[0] / display[1]), 0.001 * self.container_radius, 10 * self.container_radius
         # fov in y, aspect ratio, distance to clipping plane close, distance to clipping plane far
+        l_r_u_d = [False, False, False, False]  # left_right_up_down
 
-        left = False
-        right = False
-        up = False
-        down = False
-        # pause = False
-        for f in range(self.total_store - 1):  # todo why does there need to be a -1 here?
-            # while pause:
-            #     for event in pg.event.get():
-            #         if event.type == pg.QUIT:
-            #             pg.quit()
-            #             quit()
-            #         if event.type == pg.MOUSEBUTTONUP:
-            #             if event.button == 1:
-            #                 pause = False
-            #     pg.time.wait(1)  # doesn't detect if another button is pressed/unpressed while paused!
-            # todo put "for event in pg.event.get()" in a function then call it during the pause & after "elapsed time"
+        # ----------------
+        # begin animation loop
+        for f in range(self.total_store - 1):  # todo why is total_store 1 too big?
             elapsed_time = pg.time.get_ticks()
 
             # ----------------
-            # do camera controls
-            for event in pg.event.get():
-                if event.type == pg.QUIT:
-                    pg.quit()
-                    quit()
-                # --------
-                # arrow key press: start rotation
-                if event.type == pg.KEYDOWN:
-                    if event.key == pg.K_LEFT or event.key == pg.K_a:
-                        left = True
-                    if event.key == pg.K_RIGHT or event.key == pg.K_d:
-                        right = True
-                    if event.key == pg.K_UP or event.key == pg.K_w:
-                        up = True
-                    if event.key == pg.K_DOWN or event.key == pg.K_s:
-                        down = True
-                # --------
-                # arrow key lift: stop rotation
-                if event.type == pg.KEYUP:
-                    if event.key == pg.K_LEFT or event.key == pg.K_a:
-                        left = False
-                    if event.key == pg.K_RIGHT or event.key == pg.K_d:
-                        right = False
-                    if event.key == pg.K_UP or event.key == pg.K_w:
-                        up = False
-                    if event.key == pg.K_DOWN or event.key == pg.K_s:
-                        down = False
-                # --------
-                # mouse wheel zoom
-                if event.type == pg.MOUSEBUTTONDOWN:
-                    if event.button == 4:  # wheel rolled up
-                        camera_radius = 0.95 * camera_radius
-                        # camera_radius -= 0.05 * self.container_radius
-                    if event.button == 5:  # wheel rolled
-                        camera_radius = 1.05 * camera_radius
-                        # camera_radius += 0.05 * self.container_radius
-                    if event.button == 2:  # wheel press
-                        camera_radius = 2.25 * self.container_radius
-                    # if event.button == 1:
-                    #     pause = True
-                    # glScaled(0.95, 0.95, 0.95)
-                    camera_pos = camera_radius * normalise(camera_pos)
-            # --------
-            # camera rotation rate modifiers shift and ctrl
-            rotate_amount_per_frame = self.refresh_rate * 1e-5 * 2 * np.pi
-            if pg.key.get_mods() & pg.KMOD_SHIFT:
-                rotate_amount_per_frame *= 2
-            elif pg.key.get_mods() & pg.KMOD_CTRL:
-                rotate_amount_per_frame *= 1 / 8
-            # --------
-            # check for all arrow key rotation
-            if left:
-                camera_pos = rotate(np.array([0, 0, -rotate_amount_per_frame]), camera_pos)
-            if right:
-                camera_pos = rotate(np.array([0, 0, rotate_amount_per_frame]), camera_pos)
-            if up:
-                new_camera_pos = rotate(
-                    rotate_amount_per_frame * normalise(my_cross(camera_pos, np.array([0, 0, 1]))), camera_pos)
-                if find_truth(camera_pos, new_camera_pos):
-                    camera_pos = new_camera_pos
-            if down:
-                new_camera_pos = rotate(
-                    rotate_amount_per_frame * normalise(my_cross(np.array([0, 0, 1]), camera_pos)), camera_pos)
-                if find_truth(camera_pos, new_camera_pos):
-                    camera_pos = new_camera_pos
-
-            # ----------------
             # do camera
+            camera_pos, l_r_u_d = self.do_camera(camera_pos, camera_radius, l_r_u_d)
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)  # clear the screen
             glLoadIdentity()  # new matrix
             gluPerspective(*perspective)
@@ -270,6 +199,9 @@ class Animator:
             # update the screen with the new frame then pause for the appropriate time between frames
             pg.display.flip()
             pg.time.wait(int((1000 / self.refresh_rate) - (pg.time.get_ticks() - elapsed_time)))
+        self.data_file.close()
+        self.patch_file.close()
+        self.charge_file.close()
 
     def draw_patch_centre_spheres(self, pos, c_pos, hits_or_charges, transformation):
         m0 = np.amax(hits_or_charges[:, 0])
@@ -334,3 +266,74 @@ class Animator:
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)  # from meshes back to normal surfaces
 
         glPopMatrix()  # restores current matrix
+
+    def do_camera(self, camera_pos, camera_radius, l_r_u_d):
+        left, right, up, down = l_r_u_d
+        # ----------------
+        # do camera controls
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                pg.quit()
+                quit()
+            # --------
+            # arrow key press: start rotation
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_LEFT or event.key == pg.K_a:
+                    left = True
+                if event.key == pg.K_RIGHT or event.key == pg.K_d:
+                    right = True
+                if event.key == pg.K_UP or event.key == pg.K_w:
+                    up = True
+                if event.key == pg.K_DOWN or event.key == pg.K_s:
+                    down = True
+            # --------
+            # arrow key lift: stop rotation
+            if event.type == pg.KEYUP:
+                if event.key == pg.K_LEFT or event.key == pg.K_a:
+                    left = False
+                if event.key == pg.K_RIGHT or event.key == pg.K_d:
+                    right = False
+                if event.key == pg.K_UP or event.key == pg.K_w:
+                    up = False
+                if event.key == pg.K_DOWN or event.key == pg.K_s:
+                    down = False
+            # --------
+            # mouse wheel zoom
+            if event.type == pg.MOUSEBUTTONDOWN:
+                if event.button == 4:  # wheel rolled up
+                    camera_radius = 0.95 * camera_radius
+                    # camera_radius -= 0.05 * self.container_radius
+                if event.button == 5:  # wheel rolled
+                    camera_radius = 1.05 * camera_radius
+                    # camera_radius += 0.05 * self.container_radius
+                if event.button == 2:  # wheel press
+                    camera_radius = 2.25 * self.container_radius
+                # if event.button == 1:
+                #     pause = True
+                # glScaled(0.95, 0.95, 0.95)
+                camera_pos = camera_radius * normalise(camera_pos)
+        # --------
+        # camera rotation rate modifiers shift and ctrl
+        rotate_amount_per_frame = self.refresh_rate * 1e-5 * 2 * np.pi
+        if pg.key.get_mods() & pg.KMOD_SHIFT:
+            rotate_amount_per_frame *= 2
+        elif pg.key.get_mods() & pg.KMOD_CTRL:
+            rotate_amount_per_frame *= 1 / 8
+        # --------
+        # check for all arrow key rotation
+        if left:
+            camera_pos = rotate(np.array([0, 0, -rotate_amount_per_frame]), camera_pos)
+        if right:
+            camera_pos = rotate(np.array([0, 0, rotate_amount_per_frame]), camera_pos)
+        if up:
+            new_camera_pos = rotate(
+                rotate_amount_per_frame * normalise(my_cross(camera_pos, np.array([0, 0, 1]))), camera_pos)
+            if find_truth(camera_pos, new_camera_pos):
+                camera_pos = new_camera_pos
+        if down:
+            new_camera_pos = rotate(
+                rotate_amount_per_frame * normalise(my_cross(np.array([0, 0, 1]), camera_pos)), camera_pos)
+            if find_truth(camera_pos, new_camera_pos):
+                camera_pos = new_camera_pos
+
+        return camera_pos, [left, right, up, down]

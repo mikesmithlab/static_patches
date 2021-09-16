@@ -22,13 +22,6 @@ def qvq_multiply(rotation_quaternion, vector):  # return vector rotated by rotat
 
 def rotate(rotation, vector):  # returns vector after being rotated by angles around x y and z axes (using quaternions)
     rotation_magnitude = find_magnitude(rotation)
-    # todo do a try except here? check speed vs (if magnitude == 0)
-    # try:
-    #     return np.array(qvq_multiply([
-    #         np.cos(rotation_magnitude / 2), *(rotation.dot(np.sin(rotation_magnitude / 2) / rotation_magnitude))],
-    #         vector))
-    # except ZeroDivisionError:
-    #     return vector
     if rotation_magnitude == 0:  # if there isn't a rotation applied, don't rotate!
         return vector
     return np.array(qvq_multiply([
@@ -40,15 +33,10 @@ def find_magnitude(vector):  # returns magnitude of vector (very fast magnitude 
 
 
 def normalise(vector):  # returns vector with magnitude 1 (vector's directional components)
-    # todo do a try except here? check speed vs (if magnitude == 0 or magnitude == 1)
-    # try:
-    #     return vector.dot(1 / find_magnitude(vector))
-    # except ZeroDivisionError:
-    #     return vector
-    magnitude = find_magnitude(vector)
-    if magnitude == 0 or magnitude == 1:
+    try:
+        return vector.dot(1 / find_magnitude(vector))
+    except ZeroDivisionError:
         return vector
-    return vector.dot(1 / magnitude)
 
 
 def my_cross(v1, v2):  # returns cross product of v1 and v2 (20x faster than np.cross for small 1D numpy arrays)
@@ -98,6 +86,5 @@ def find_tangent_force(gamma_t, mu, normal_force, normal, surface_velocity):  # 
 
 
 def round_sig_figs(x, p):  # credit for this significant figures function https://stackoverflow.com/revisions/59888924/2
-    # x = np.asarray(x)  # can remove this line?
     mags = 10 ** (p - 1 - np.floor(np.log10(np.where(np.isfinite(x) & (x != 0), np.abs(x), 10 ** (p - 1)))))
     return np.round(x * mags) / mags

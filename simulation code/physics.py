@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.spatial import KDTree
-from tqdm import tqdm
+from tqdm.gui import tqdm
 
 from my_tools import find_magnitude, rotate, normalise, find_rotation_matrix, my_cross, sphere_points_maker,\
     find_tangent_force, round_sig_figs, find_in_new_coordinates
@@ -14,7 +14,7 @@ class PatchTracker:
 
     def __init__(self, n, offset, r_part, r_cont):
         self.n = n
-        self.points = sphere_points_maker(self.n, offset)  # todo separate n for part and cont?
+        self.points = sphere_points_maker(self.n, offset)
         self.points_part = self.points.dot(r_part)
         self.points_cont = self.points.dot(r_cont)
         self.tree = KDTree(self.points)  # input to KDTree for 3D should have dimensions (n, 3)
@@ -152,7 +152,7 @@ class Engine:
         self.radii_difference = self.c.radius - self.p.radius
         self.mu = conds["mu"]  # coefficient of friction between the surfaces
         self.gamma_t = conds["gamma_t"]  # viscous damping coefficient of the surfaces
-        self.contact = False  # todo the only thing contact is used for is graphics. Semi-redundant: patches tracks hits
+        self.contact = False
         self.is_new_collision = True
         self.impulse_non_e = np.array([0, 0, 0])
         self.impulse_e = np.array([0, 0, 0])
@@ -172,7 +172,7 @@ class Engine:
             if i % self.store_interval == 0:  # store if this is a store step
                 force, torque, overlap = self.update(time, True)
                 self.store(i, time, overlap)
-                if i % (self.store_interval * 10) == 0:  # store patch charges every n store steps  # todo ???
+                if i % (self.store_interval * 20) == 0:  # store patch charges every 20 store steps
                     self.p_t.store_charges(time)
             else:  # this else exists for speed - the code runs about 10% faster when overlap isn't assigned in update!
                 force, torque, _ = self.update(time, True)

@@ -6,30 +6,34 @@ def measure_charge():
     # _m is in metres, _px is in pixels
 
     # ----------------
-    # system properties
+    # misc. system properties
     g = 9.81
     length_m = 0.95  # length of hanging string
-    mass = 0.3 * 1e-3
+    mass = 0.7 * 1e-3
+    string_density = 0.0721e-3 / 2.56  # measured 2.56m of string (maybe a couple of cm more) and it was 0.0721g
 
     # ----------------
     # electric field
-    voltage = 10 * 1e3  # todo
-    plate_separation_m = 1e-1  # distances in cm converted to m
+    voltage = 1.25 * 1e3
+    plate_separation_m = 1e-1
     electric_field = voltage / plate_separation_m
 
     # ----------------
     # lengths
-    diameter_m = 8 * 1e-3
-    diameter_px = 915 - 679  # 236 - as long as the camera doesn't move it should stay as 236
-    dx_px = np.array([675 - 49])  # change in pixel value for desired measurement
-    conversion = diameter_m / diameter_px  # metres per pixel
+    diameter_m = 10 * 1e-3
+    diameter_px = 915 - 679
+    # dx_px = 675 - 49  # change in pixel value for desired measurement
+    # conversion = diameter_m / diameter_px  # metres per pixel
     # dx_m = dx_px * conversion  # change in position in metres
-    dx_m = 1e-6  # change in position in metres
+    dx_m = diameter_m  # change in position in metres
 
     # ----------------
     # change in charge
-    dq = dx_m * ((mass * g) / (electric_field * length_m))  # change in charge in Coulombs
-    print(f"{dq = }")
+    dq = dx_m * (mass + string_density * length_m / 2) * g / (electric_field * (length_m ** 2 - dx_m ** 2) ** 0.5)
+    dq = dq * 10 ** 9  # convert from C to nC so we always have the same units
+    # dq_bad = (dx_m * mass * g) / (electric_field * length_m)
+    # change in charge in Coulombs
+    print(f"{dq = } nC")
 
 
 def plot_hysteresis():

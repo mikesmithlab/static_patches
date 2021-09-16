@@ -80,11 +80,9 @@ def plot_charges(n):  # produces a plot of cumulative hits over time for every p
                     if i % 3 == 0:
                         time_list[int(i / 3)] = float(line)  # store the time of this collision
                     elif i % 3 == 1:
-                        j = int((i - 1) / 3)
-                        p_charge_list[j, :] = np.array(line.strip().split(","))
+                        p_charge_list[int((i - 1) / 3), :] = np.array(line.strip().split(","))
                     else:
-                        j = int((i - 2) / 3)
-                        c_charge_list[j, :] = np.array(line.strip().split(","))
+                        c_charge_list[int((i - 2) / 3), :] = np.array(line.strip().split(","))
                 i += 1
     except FileNotFoundError:
         raise FileNotFoundError("You deleted the charges file or didn't make it with PatchTracker")
