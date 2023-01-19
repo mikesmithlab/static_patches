@@ -140,26 +140,35 @@ class Engine:
     """
 
     def __init__(self, conds):
+        #Initialise constants
         self.g = conds["g"]
+        self.mu = conds["mu"]  # coefficient of friction between the surfaces
+        self.gamma_t = conds["gamma_t"]  # viscous damping coefficient of the surfaces
+        
+
+        #Set time simulation
         self.time_end = conds["time_end"]
         self.time_step = conds["time_step"]
         self.total_steps = conds["total_steps"]
         self.store_interval = conds["store_interval"]
+        
+        #Initialise objects in simulation
         self.p = Particle(conds, self.time_step, self.g)
         self.c = Container(conds["container_amplitude"], conds["container_omega"], conds["container_time_end"],
                            conds["container_radius"])
         self.p_t = PatchTracker(conds["number_of_patches"], conds["optimal_offset"], self.p.radius, self.c.radius)
+        
         self.radii_difference = self.c.radius - self.p.radius
-        self.mu = conds["mu"]  # coefficient of friction between the surfaces
-        self.gamma_t = conds["gamma_t"]  # viscous damping coefficient of the surfaces
+        
         self.contact = False
         self.is_new_collision = True
         self.impulse_non_e = np.array([0, 0, 0])
         self.impulse_e = np.array([0, 0, 0])
 
+        #Initialise output file for simulation data
         with open("data_dump", "w") as data_file:
-            with open("conds.txt", "r") as conds_file:
-                data_file.writelines(conds_file.read())
+            #with open("conds.txt", "r") as conds_file:
+            #    data_file.writelines(conds_file.read())
             data_file.writelines(
                 "\n(end of)iteration,time,pos_x,pos_y,pos_z,"
                 "x_axis_x,x_axis_y,x_axis_z,z_axis_x,z_axis_y,z_axis_z,"

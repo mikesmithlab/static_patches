@@ -1,4 +1,4 @@
-from conditions import get_conditions
+from conditions import sim_params
 from physics import Engine
 from reader import Animator
 from analyser import plot_energy, plot_patches, plot_charges, show_plots
@@ -19,36 +19,13 @@ from analyser import plot_energy, plot_patches, plot_charges, show_plots
 # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.html
 
 
+
 def main():
-    # ----------------
-    # writing
-    do_physics = False
-    # do_physics = True
-    if do_physics:
-        print("doing physics...")
-        conds = get_conditions(filename="conds.txt")
-        # # find optimal offset for any number of patches
-        # from my_tools import offset_finder
-        # conds['optimal_offset'] = offset_finder(conds['number_of_patches'])
-        # print(f"{conds['optimal_offset'] = }")
-        Engine(conds).run()
-        print("physics is done - the data_dump, charges, and patches files have been written to")
-    else:
-        print("kept previous physics - the data_dump, charges, and patches files are unchanged")
-
-    # ----------------
-    # reading
-    conds = get_conditions(filename="data_dump")
-
-    do_animate = False
-    # do_animate = True
-    if do_animate:
-        print("animating....")
-        Animator(conds).animate()
-
+  
+    """
     # do_analysis = False
-    do_analysis = True
-    if do_analysis:
+    analyse = False
+    if analyse:
         print("analysing....")
         # do_energy_analysis = False
         do_energy_analysis = True
@@ -65,7 +42,12 @@ def main():
         if do_energy_analysis or do_patch_analysis or do_charge_analysis:
             show_plots()
 
+"""
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    main()
+    filename='test.json'
+    params = sim_params(save_filename=filename)
+    Engine(params).run()
+    Animator(params).animate()
+    

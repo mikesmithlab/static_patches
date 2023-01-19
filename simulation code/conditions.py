@@ -1,7 +1,8 @@
 import numpy as np
+import json
+from my_tools import offset_finder
 
-
-def default_conds():
+def params():
     return {
         'g': -9.81,
         'radius': 5 / 1000,
@@ -14,9 +15,9 @@ def default_conds():
         'container_omega': 20 * 2 * np.pi,
         'number_of_patches': int(200),
         'optimal_offset': 0.4383841477800122,  # if number_of_patches is not 200, this needs changing as well
-        'pos': np.array([0.001, -0.001, 0]),
-        'velocity': np.array([0.1 * 2 ** 0.4, 0.1 * 2 ** 0.6, 0]),
-        'omega': 0 * np.array([50 * 2 * np.pi, 5 * 2 * np.pi, 12 * 2 * np.pi]),
+        'pos': [0.001, -0.001, 0],#np.array([0.001, -0.001, 0]),
+        'velocity': [0.1 * 2 ** 0.4, 0.1 * 2 ** 0.6, 0],#np.array([0.1 * 2 ** 0.4, 0.1 * 2 ** 0.6, 0]),
+        'omega': 0*[50 * 2 * np.pi, 5 * 2 * np.pi, 12 * 2 * np.pi],# 0 * np.array([50 * 2 * np.pi, 5 * 2 * np.pi, 12 * 2 * np.pi]),
         'time_end': 6,
         'container_time_end': 5.8,
         'time_warp': 2 / 20,
@@ -24,65 +25,11 @@ def default_conds():
     }
 
 
-def get_conditions(filename=None):
-    # ---------------------------------------
-    # Don't change anything in this function!
-    # ---------------------------------------
-    # if filename is given, conds comes from file (or is written to it if it doesn't exist)
-    # if filename isn't given, conds defaults to the dictionary returned by default_conds()
-    conds = default_conds()
+def sim_params(save_filename='test.json'):
+    #Call user params
+    conds = params()
 
-    if filename is not None:
-        try:
-            with open(filename, "r") as file:
-                try:
-                    file.readline()
-                    field = file.readline().strip().split(",")
-                    conds = {
-                        'g': float(field[0]),
-                        'radius': float(field[1]),
-                        'density': float(field[2]),
-                        'coefficient_of_restitution': float(field[3]),
-                        'mu': float(field[4]),
-                        'gamma_t': float(field[5]),
-                        'container_radius': float(field[6]),
-                        'container_amplitude': float(field[7]),
-                        'container_omega': float(field[8]),
-                        'number_of_patches': int(field[9]),
-                        'optimal_offset': float(field[10]),
-                        'pos': np.array([float(field[11]), float(field[12]), float(field[13])]),
-                        'velocity': np.array([float(field[14]), float(field[15]), float(field[16])]),
-                        'omega': np.array([float(field[17]), float(field[18]), float(field[19])]),
-                        'time_end': float(field[20]),
-                        'container_time_end': float(field[21]),
-                        'time_warp': float(field[22]),
-                        'refresh_rate': float(field[23]),
-                    }
-                    print(f"Read properties and initial conditions from '{filename}'.")
-                except ValueError:
-                    raise ValueError(f"Wrong format of given file: '{filename}'. Fix or delete the file then rerun.")
-        except FileNotFoundError:
-            print(f"Can't find '{filename}'. Making new with default conds.")
-            with open(filename, "w") as file:
-                l1 = (
-                    f"g,radius,density,coefficient_of_restitution,mu,gamma_t,container_radius,amplitude,"
-                    f"omega,number_of_patches,optimal_offset,pos(3),velocity(3),omega(3),"
-                    f"time_end,container_stop_time,time_warp,refresh_rate\n"
-                )
-                p = conds['pos']
-                v = conds['velocity']
-                o = conds['omega']
-                l2 = (
-                    f"{conds['g']},{conds['radius']},{conds['density']},{conds['coefficient_of_restitution']},"
-                    f"{conds['mu']},{conds['gamma_t']},{conds['container_radius']},{conds['container_amplitude']},"
-                    f"{conds['container_omega']},{conds['number_of_patches']},{conds['optimal_offset']},"
-                    f"{p[0]},{p[1]},{p[2]},{v[0]},{v[1]},{v[2]},{o[0]},{o[1]},{o[2]},"
-                    f"{conds['time_end']},{conds['time_end']},{conds['time_warp']},{conds['refresh_rate']}"
-                )
-                file.writelines(l1)
-                file.writelines(l2)
-
-    # object properties
+    # calc object properties
     conds['mass'] = conds['density'] * (4 / 3) * np.pi * conds['radius'] ** 3
     conds['moment_of_inertia'] = (2 / 5) * conds['mass'] * conds['radius'] ** 2
     conds['spring_constant'] = (100 * conds['mass'] / conds['radius']) * (
@@ -90,12 +37,17 @@ def get_conditions(filename=None):
     conds['damping'] = (-2 / np.pi) * conds['mass'] * np.log(conds['coefficient_of_restitution']) * (
             conds['spring_constant'] / conds['mass']) ** 0.5
 
-    # timing
+    # simulation time settings
     conds['time_step'] = (1 / 50) * np.pi * np.sqrt((conds['mass'] / conds['spring_constant']))
     conds['total_steps'] = int(conds['time_end'] / conds['time_step'])
-    # total_steps = (t_end / t_step) + ((int(t_end / t_step) - (t_end / t_step))) != 0)  # round up integer?
     conds['store_interval'] = int(conds['time_warp'] / (conds['time_step'] * conds['refresh_rate']))
     conds['total_store'] = int(conds['total_steps'] / conds['store_interval']) + (
-            conds['total_steps'] % conds['store_interval'] > 0)  # round up int because of 0th frame
+                conds['total_steps'] % conds['store_interval'] > 0)  # round up int because of 0th frame
+
+    # find optimal offset for any number of patches
+    conds['optimal_offset'] = offset_finder(conds['number_of_patches'])
+
+    with open(save_filename, 'w') as simulation_conditions:
+        simulation_conditions.write(json.dumps(conds))
 
     return conds
